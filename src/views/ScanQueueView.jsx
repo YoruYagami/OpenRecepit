@@ -67,7 +67,7 @@ export function ScanQueueView({
             {allFinished ? "Revisione scontrini" : "Analisi scontrini"}
           </h2>
           <p className="text-sm text-ink/60">
-            {allFinished ? `${queue.length} immagine${queue.length === 1 ? "" : "i"} elaborate` : `Analisi ${done}/${total}…`}
+            {allFinished ? `${queue.length} immagin${queue.length === 1 ? "e" : "i"} elaborat${queue.length === 1 ? "a" : "e"}` : `Analisi ${done}/${total}…`}
           </p>
         </div>
         <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-black/5 grid place-items-center text-ink/60" aria-label="Chiudi">✕</button>

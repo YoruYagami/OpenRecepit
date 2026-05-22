@@ -6,9 +6,10 @@ import {
   CATEGORY_IDS,
   CATEGORIES,
   DOC_TYPES,
+  MODELS,
 } from '../constants.js';
 import { fetchOpenRouterModels, validateOpenRouterKey, isVisionModel, modelDisplayName } from '../api/openRouter.js';
-import { hashPin, randomSalt } from '../utils/security.js';
+import { hashPin, randomSalt, PIN_ALGO_PBKDF2 } from '../utils/security.js';
 import { isBiometricAvailable, registerBiometric } from '../platform/biometric.js';
 import { safeLoad, safeSave } from '../utils/storage.js';
 import { PrimaryButton, GhostButton } from '../components/ui/Button.jsx';
@@ -186,7 +187,7 @@ function SecuritySection({ askConfirm }) {
     isBiometricAvailable().then(setBioAvailable);
   }, []);
 
-  const pinValid = (s) => /^d+$/.test(s) && s.length === pinLength;
+  const pinValid = (s) => /^\d+$/.test(s) && s.length === pinLength;
 
   const enablePin = async () => {
     if (!pinValid(pin1)) return toast(`Il PIN deve essere di ${pinLength} cifre`, "error");
@@ -195,7 +196,7 @@ function SecuritySection({ askConfirm }) {
     try {
       const salt = randomSalt();
       const hash = await hashPin(pin1, salt);
-      setSettings({ pinEnabled: true, pinSalt: salt, pinHash: hash, pinLength });
+      setSettings({ pinEnabled: true, pinSalt: salt, pinHash: hash, pinAlgo: PIN_ALGO_PBKDF2, pinLength });
       setPin1(""); setPin2("");
       toast("PIN attivato", "success");
     } finally {
@@ -210,7 +211,7 @@ function SecuritySection({ askConfirm }) {
       danger: true,
       confirmLabel: "Disabilita",
       onConfirm: () => {
-        setSettings({ pinEnabled: false, pinHash: null, pinSalt: null, biometricEnabled: false, biometricCredId: null });
+        setSettings({ pinEnabled: false, pinHash: null, pinSalt: null, pinAlgo: null, biometricEnabled: false, biometricCredId: null });
         askConfirm(null);
         toast("PIN disabilitato");
       },
@@ -270,10 +271,10 @@ function SecuritySection({ askConfirm }) {
             </div>
           </Field>
           <Field label="Nuovo PIN">
-            <TextInput type="password" inputMode="numeric" maxLength={pinLength} value={pin1} onChange={(e) => setPin1(e.target.value.replace(/D/g, "").slice(0, pinLength))} />
+            <TextInput type="password" inputMode="numeric" maxLength={pinLength} value={pin1} onChange={(e) => setPin1(e.target.value.replace(/\D/g, "").slice(0, pinLength))} />
           </Field>
           <Field label="Conferma PIN">
-            <TextInput type="password" inputMode="numeric" maxLength={pinLength} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/D/g, "").slice(0, pinLength))} />
+            <TextInput type="password" inputMode="numeric" maxLength={pinLength} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, "").slice(0, pinLength))} />
           </Field>
           <PrimaryButton onClick={enablePin} disabled={busy || !pinValid(pin1) || pin1 !== pin2}>Attiva PIN</PrimaryButton>
         </>

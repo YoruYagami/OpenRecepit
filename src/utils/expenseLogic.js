@@ -62,7 +62,7 @@ export function similarMerchant(a, b) {
   const norm = (s) =>
     String(s || "")
       .toLowerCase()
-      .replace(/b(s.?r.?l.?|s.?p.?a.?|s.?n.?c.?|srls|spa|srl|snc)b/g, "")
+      .replace(/\b(s\.?r\.?l\.?|s\.?p\.?a\.?|s\.?n\.?c\.?|srls|spa|srl|snc)\b/g, "")
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
   const na = norm(a);

@@ -4,6 +4,7 @@ import { uid } from './utils/formatters.js';
 import { analyzeReceipt } from './api/openRouter.js';
 import { fileSha256, fileToResizedDataURL } from './utils/image.js';
 import { defaultDocsForNewExpense, findContentDuplicate, mergeQueueItems } from './utils/expenseLogic.js';
+import { downloadFile, tripToCSV, tripToSummary } from './utils/export.js';
 import { isNative as platformIsNative, pickImagesNative } from './platform/camera.js';
 
 import { BottomTabBar } from './components/layout/BottomTabBar.jsx';
@@ -20,7 +21,7 @@ import { ScanLauncher } from './views/ScanLauncher.jsx';
 import { ScanQueueView } from './views/ScanQueueView.jsx';
 
 function AppInner() {
-  const { trips, setTrips, settings, locked, setLocked, toasts, toast } = useAppContext();
+  const { trips, setTrips, settings, locked, setLocked, toasts, toast, ready } = useAppContext();
 
   const [activeTab, setActiveTab] = useState("trips");
   const [openTripId, setOpenTripId] = useState(null);
@@ -494,6 +495,13 @@ function AppInner() {
   };
 
   const renderContent = () => {
+    if (!ready && activeTab !== "settings") {
+      return (
+        <div className="flex items-center justify-center min-h-[40vh] fade-in">
+          <div className="w-8 h-8 rounded-full border-2 border-ink/20 border-t-ink animate-spin" />
+        </div>
+      );
+    }
     if (activeTab === "settings") {
       return <SettingsView askConfirm={setConfirm} />;
     }
@@ -527,8 +535,18 @@ function AppInner() {
           reanalyzingId={reanalyzingId}
           onScanCamera={() => triggerScan(openTrip.id, "camera")}
           onScanGallery={() => triggerScan(openTrip.id, "gallery")}
-          onExportCSV={() => {}} // Not fully implemented in rewriting but logic is in export.js
-          onExportSummary={() => {}}
+          onExportCSV={() => {
+            if (openTrip.expenses.length === 0) return toast("Nessuna spesa da esportare", "error");
+            const safeName = (openTrip.name || "trasferta").replace(/[^a-z0-9-_]+/gi, "_");
+            downloadFile(`${safeName}.csv`, "text/csv;charset=utf-8", "﻿" + tripToCSV(openTrip));
+            toast("CSV esportato", "success");
+          }}
+          onExportSummary={() => {
+            if (openTrip.expenses.length === 0) return toast("Nessuna spesa da esportare", "error");
+            const safeName = (openTrip.name || "trasferta").replace(/[^a-z0-9-_]+/gi, "_");
+            downloadFile(`${safeName}_riepilogo.txt`, "text/plain;charset=utf-8", tripToSummary(openTrip));
+            toast("Riepilogo esportato", "success");
+          }}
           onViewImage={viewImage}
           settings={settings}
         />

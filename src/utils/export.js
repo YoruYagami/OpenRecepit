@@ -15,7 +15,7 @@ export function downloadFile(filename, mime, content) {
 
 export function csvEscape(s) {
   const v = String(s ?? "");
-  if (/[",n;]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+  if (/[",\n;]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
   return v;
 }
 
@@ -35,7 +35,7 @@ export function tripToCSV(trip) {
       e.importo.toFixed(2).replace(".", ","),
       e.valuta,
     ]);
-  return [header, ...rows].map((r) => r.map(csvEscape).join(";")).join("n");
+  return [header, ...rows].map((r) => r.map(csvEscape).join(";")).join("\n");
 }
 
 export function tripToSummary(trip) {
@@ -59,5 +59,5 @@ export function tripToSummary(trip) {
       const c = CATEGORIES[cat] || CATEGORIES.altro;
       lines.push(`  ${c.icon}  ${c.label}: ${fmtMoney(amt)}`);
     });
-  return lines.join("n");
+  return lines.join("\n");
 }

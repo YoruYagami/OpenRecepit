@@ -13,7 +13,7 @@ export function TripsListView({ trips, onOpen, onNew, onDelete }) {
       <div className="flex items-end justify-between mb-5">
         <div>
           <h2 className="text-2xl font-extrabold text-ink">Trasferte</h2>
-          <p className="text-sm text-ink/60">{trips.length === 0 ? "Nessuna trasferta" : `${trips.length} trasferta${trips.length === 1 ? "" : "e"}`}</p>
+          <p className="text-sm text-ink/60">{trips.length === 0 ? "Nessuna trasferta" : `${trips.length} trasfert${trips.length === 1 ? "a" : "e"}`}</p>
         </div>
         <button
           onClick={onNew}

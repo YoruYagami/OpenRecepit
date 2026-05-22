@@ -19,8 +19,39 @@ export function randomSalt() {
   return b64urlEncode(a);
 }
 
-export async function hashPin(pin, salt) {
+const PBKDF2_ITER = 150000;
+export const PIN_ALGO_PBKDF2 = "pbkdf2-sha256-v1";
+
+async function pbkdf2(pin, salt) {
+  const saltBytes = b64urlDecode(salt);
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(pin),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: saltBytes, iterations: PBKDF2_ITER, hash: "SHA-256" },
+    keyMaterial,
+    256
+  );
+  return b64urlEncode(new Uint8Array(bits));
+}
+
+async function legacySha256(pin, salt) {
   const buf = new TextEncoder().encode(`${salt}:${pin}`);
   const hash = await crypto.subtle.digest("SHA-256", buf);
   return b64urlEncode(hash);
+}
+
+export async function hashPin(pin, salt) {
+  return pbkdf2(pin, salt);
+}
+
+export async function verifyPin(pin, salt, expectedHash, algo) {
+  if (algo === PIN_ALGO_PBKDF2) {
+    return (await pbkdf2(pin, salt)) === expectedHash;
+  }
+  return (await legacySha256(pin, salt)) === expectedHash;
 }

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { hashPin } from '../../utils/security.js';
+import { hashPin, verifyPin, PIN_ALGO_PBKDF2 } from '../../utils/security.js';
 import { verifyBiometric } from '../../platform/biometric.js';
+import { useAppContext } from '../../context/AppContext.jsx';
 import { Spinner } from '../ui/Spinner.jsx';
 
 export function LockScreen({ settings, onUnlock, onForget }) {
+  const { setSettings } = useAppContext();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,8 +40,16 @@ export function LockScreen({ settings, onUnlock, onForget }) {
   const tryPin = async (val) => {
     setBusy(true);
     try {
-      const hash = await hashPin(val, settings.pinSalt);
-      if (hash === settings.pinHash) {
+      const ok = await verifyPin(val, settings.pinSalt, settings.pinHash, settings.pinAlgo);
+      if (ok) {
+        if (settings.pinAlgo !== PIN_ALGO_PBKDF2) {
+          try {
+            const upgraded = await hashPin(val, settings.pinSalt);
+            setSettings({ pinHash: upgraded, pinAlgo: PIN_ALGO_PBKDF2 });
+          } catch {
+            // upgrade best-effort; ignore failures
+          }
+        }
         onUnlock();
       } else {
         setError("PIN errato");

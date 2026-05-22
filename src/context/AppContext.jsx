@@ -1,39 +1,43 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { safeLoad, safeSave } from '../utils/storage.js';
+import { idbGet, idbSet } from '../utils/idbStorage.js';
 import { useToasts } from '../hooks/useToasts.jsx';
 import { STORAGE_TRIPS, STORAGE_SETTINGS, DEFAULT_SETTINGS, DEFAULT_LIMITS, DOC_TYPE_IDS } from '../constants.js';
 
 const AppContext = createContext(null);
 
-export function AppProvider({ children }) {
-  const [trips, setTrips] = useState(() => {
-    const loaded = safeLoad(STORAGE_TRIPS, []);
-    return loaded.map((t) => ({
-      ...t,
-      expenses: (t.expenses || []).map((e) => {
-        if (e.merged) return e;
-        const docs = e.documents || {};
-        const count = Object.values(docs).filter(Boolean).length;
-        return count >= 2 ? { ...e, merged: true } : e;
-      }),
-    }));
-  });
+function migrateTrips(loaded) {
+  return (loaded || []).map((t) => ({
+    ...t,
+    expenses: (t.expenses || []).map((e) => {
+      if (e.merged) return e;
+      const docs = e.documents || {};
+      const count = Object.values(docs).filter(Boolean).length;
+      return count >= 2 ? { ...e, merged: true } : e;
+    }),
+  }));
+}
 
-  const [settings, setSettingsState] = useState(() => {
-    const loaded = safeLoad(STORAGE_SETTINGS, {});
-    const reqDocs = { ...DEFAULT_SETTINGS.requiredDocs, ...(loaded.requiredDocs || {}) };
-    if (!Array.isArray(reqDocs.alternatives)) reqDocs.alternatives = [];
-    if (reqDocs.alternatives.length === 0) {
-      const legacy = DOC_TYPE_IDS.filter((id) => reqDocs[id] === true);
-      if (legacy.length > 0) reqDocs.alternatives = [legacy];
-    }
-    return {
-      ...DEFAULT_SETTINGS,
-      ...loaded,
-      expenseLimits: { ...DEFAULT_LIMITS, ...(loaded.expenseLimits || {}) },
-      requiredDocs: reqDocs,
-    };
-  });
+function normalizeSettings(loaded) {
+  const reqDocs = { ...DEFAULT_SETTINGS.requiredDocs, ...(loaded.requiredDocs || {}) };
+  if (!Array.isArray(reqDocs.alternatives)) reqDocs.alternatives = [];
+  if (reqDocs.alternatives.length === 0) {
+    const legacy = DOC_TYPE_IDS.filter((id) => reqDocs[id] === true);
+    if (legacy.length > 0) reqDocs.alternatives = [legacy];
+  }
+  return {
+    ...DEFAULT_SETTINGS,
+    ...loaded,
+    expenseLimits: { ...DEFAULT_LIMITS, ...(loaded.expenseLimits || {}) },
+    requiredDocs: reqDocs,
+  };
+}
+
+export function AppProvider({ children }) {
+  const [trips, setTrips] = useState([]);
+  const [ready, setReady] = useState(false);
+
+  const [settings, setSettingsState] = useState(() => normalizeSettings(safeLoad(STORAGE_SETTINGS, {})));
 
   const [locked, setLocked] = useState(() => {
     const loaded = safeLoad(STORAGE_SETTINGS, {});
@@ -42,8 +46,48 @@ export function AppProvider({ children }) {
 
   const { toasts, push: toast } = useToasts();
 
-  useEffect(() => { safeSave(STORAGE_TRIPS, trips); }, [trips]);
-  useEffect(() => { safeSave(STORAGE_SETTINGS, settings); }, [settings]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const fromIdb = await idbGet(STORAGE_TRIPS);
+        if (fromIdb && Array.isArray(fromIdb)) {
+          if (!cancelled) setTrips(migrateTrips(fromIdb));
+          return;
+        }
+        const fromLs = safeLoad(STORAGE_TRIPS, null);
+        if (fromLs && Array.isArray(fromLs) && fromLs.length > 0) {
+          await idbSet(STORAGE_TRIPS, fromLs);
+          try { localStorage.removeItem(STORAGE_TRIPS); } catch {}
+          if (!cancelled) setTrips(migrateTrips(fromLs));
+        }
+      } catch (e) {
+        console.warn("trips load failed", e);
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const tripsSaveTimer = useRef(null);
+  useEffect(() => {
+    if (!ready) return;
+    if (tripsSaveTimer.current) clearTimeout(tripsSaveTimer.current);
+    tripsSaveTimer.current = setTimeout(() => {
+      idbSet(STORAGE_TRIPS, trips).catch((e) => console.warn("idb save failed", e));
+    }, 400);
+    return () => { if (tripsSaveTimer.current) clearTimeout(tripsSaveTimer.current); };
+  }, [trips, ready]);
+
+  const settingsSaveTimer = useRef(null);
+  useEffect(() => {
+    if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current);
+    settingsSaveTimer.current = setTimeout(() => {
+      safeSave(STORAGE_SETTINGS, settings);
+    }, 250);
+    return () => { if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current); };
+  }, [settings]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -71,8 +115,9 @@ export function AppProvider({ children }) {
     trips, setTrips,
     settings, setSettings,
     locked, setLocked,
-    toasts, toast
-  }), [trips, settings, locked, toasts, toast]);
+    toasts, toast,
+    ready,
+  }), [trips, settings, locked, toasts, toast, ready]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
