@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react';
 import { AppProvider, useAppContext } from './context/AppContext.jsx';
 import { uid } from './utils/formatters.js';
 import { analyzeReceipt } from './api/openRouter.js';
@@ -6,6 +6,7 @@ import { fileSha256, fileToResizedDataURL } from './utils/image.js';
 import { defaultDocsForNewExpense, findContentDuplicate, mergeQueueItems } from './utils/expenseLogic.js';
 import { downloadFile, tripToCSV, tripToSummary } from './utils/export.js';
 import { isNative as platformIsNative, pickImagesNative } from './platform/camera.js';
+import { registerBackButton } from './platform/backButton.js';
 
 import { BottomTabBar } from './components/layout/BottomTabBar.jsx';
 import { LockScreen } from './components/layout/LockScreen.jsx';
@@ -14,11 +15,20 @@ import { ConfirmDialog } from './components/dialogs/ConfirmDialog.jsx';
 import { ImageViewer } from './components/dialogs/ImageViewer.jsx';
 import { TripFormModal } from './components/dialogs/TripFormModal.jsx';
 
-import { SettingsView } from './views/SettingsView.jsx';
 import { TripsListView } from './views/TripsListView.jsx';
 import { TripDetailView } from './views/TripDetailView.jsx';
 import { ScanLauncher } from './views/ScanLauncher.jsx';
-import { ScanQueueView } from './views/ScanQueueView.jsx';
+
+const SettingsView = lazy(() => import('./views/SettingsView.jsx').then(m => ({ default: m.SettingsView })));
+const ScanQueueView = lazy(() => import('./views/ScanQueueView.jsx').then(m => ({ default: m.ScanQueueView })));
+
+function ViewLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[40vh] fade-in">
+      <div className="w-8 h-8 rounded-full border-2 border-ink/20 border-t-ink animate-spin" />
+    </div>
+  );
+}
 
 function AppInner() {
   const { trips, setTrips, settings, locked, setLocked, toasts, toast, ready } = useAppContext();
@@ -55,6 +65,24 @@ function AppInner() {
   );
 
   const scanEnabled = trips.length > 0 && !!settings.apiKey;
+
+  const backStateRef = useRef({});
+  backStateRef.current = {
+    imageViewer, scanQueueOpen, confirm, tripModalOpen, openTripId, activeTab,
+  };
+
+  useEffect(() => {
+    return registerBackButton(() => {
+      const s = backStateRef.current;
+      if (s.imageViewer) { setImageViewer(null); return true; }
+      if (s.confirm) { setConfirm(null); return true; }
+      if (s.tripModalOpen) { setTripModalOpen(false); setEditingTrip(null); return true; }
+      if (s.scanQueueOpen) { setScanQueueOpen(false); setScanQueue([]); return true; }
+      if (s.openTripId) { setOpenTripId(null); return true; }
+      if (s.activeTab !== "trips") { setActiveTab("trips"); return true; }
+      return false;
+    });
+  }, []);
 
   const handleNewTrip = () => { setEditingTrip(null); setTripModalOpen(true); };
   const handleEditTrip = (trip) => { setEditingTrip(trip); setTripModalOpen(true); };
@@ -401,7 +429,7 @@ function AppInner() {
     const item = scanQueueRef.current.find((it) => it.id === itemId);
     if (!item || item.status !== "done") return;
     const tripId = item.tripId;
-    const { duplicateOf, duplicateLabel, ...savedData } = item.data || {};
+    const { duplicateOf: _duplicateOf, duplicateLabel: _duplicateLabel, ...savedData } = item.data || {};
     const expense = { id: uid(), ...savedData, thumb: item.thumb, full: item.full, imageHash: item.imageHash, extraImages: item.extraImages, createdAt: Date.now() };
     setTrips((ts) => ts.map((t) => (t.id === tripId ? { ...t, expenses: [...t.expenses, expense] } : t)));
     setScanQueue((q) => q.map((it) => (it.id === itemId ? { ...it, status: "confirmed" } : it)));
@@ -455,7 +483,7 @@ function AppInner() {
     const toAdd = all.filter((it) => !it.data?.duplicateOf);
     if (toAdd.length === 0) return toast("Nessuno scontrino valido da aggiungere", "error");
     const newExpenses = toAdd.map((item) => {
-      const { duplicateOf, duplicateLabel, ...savedData } = item.data || {};
+      const { duplicateOf: _duplicateOf, duplicateLabel: _duplicateLabel, ...savedData } = item.data || {};
       return { id: uid(), ...savedData, thumb: item.thumb, full: item.full, imageHash: item.imageHash, extraImages: item.extraImages, createdAt: Date.now() };
     });
     setTrips((ts) => ts.map((t) => (t.id === tripId ? { ...t, expenses: [...t.expenses, ...newExpenses] } : t)));
@@ -503,7 +531,11 @@ function AppInner() {
       );
     }
     if (activeTab === "settings") {
-      return <SettingsView askConfirm={setConfirm} />;
+      return (
+        <Suspense fallback={<ViewLoader />}>
+          <SettingsView askConfirm={setConfirm} />
+        </Suspense>
+      );
     }
     if (activeTab === "scan") {
       if (!scanEnabled) {
@@ -574,21 +606,23 @@ function AppInner() {
         <TripFormModal open={tripModalOpen} initial={editingTrip} onClose={() => { setTripModalOpen(false); setEditingTrip(null); }} onSave={handleSaveTrip} />
 
         {scanQueueOpen && (
-          <ScanQueueView
-            queue={scanQueue}
-            onChangeItem={(item) => setScanQueue(q => q.map(i => i.id === item.id ? item : i))}
-            onConfirmItem={handleQueueItemConfirm}
-            onDiscardItem={handleQueueItemDiscard}
-            onRetryItem={handleQueueItemRetry}
-            onReanalyzeItem={handleQueueItemReanalyze}
-            onMergeGroup={handleMergeGroup}
-            onConfirmAll={handleQueueConfirmAll}
-            onDiscardAll={handleQueueDiscardAll}
-            onClose={closeQueue}
-            onViewImage={viewImage}
-            settings={settings}
-            trip={trips.find((t) => t.id === scanQueue[0]?.tripId) || null}
-          />
+          <Suspense fallback={<ViewLoader />}>
+            <ScanQueueView
+              queue={scanQueue}
+              onChangeItem={(item) => setScanQueue(q => q.map(i => i.id === item.id ? item : i))}
+              onConfirmItem={handleQueueItemConfirm}
+              onDiscardItem={handleQueueItemDiscard}
+              onRetryItem={handleQueueItemRetry}
+              onReanalyzeItem={handleQueueItemReanalyze}
+              onMergeGroup={handleMergeGroup}
+              onConfirmAll={handleQueueConfirmAll}
+              onDiscardAll={handleQueueDiscardAll}
+              onClose={closeQueue}
+              onViewImage={viewImage}
+              settings={settings}
+              trip={trips.find((t) => t.id === scanQueue[0]?.tripId) || null}
+            />
+          </Suspense>
         )}
 
         <ConfirmDialog open={!!confirm} {...confirm} onCancel={() => setConfirm(null)} />

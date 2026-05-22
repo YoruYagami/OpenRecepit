@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext.jsx';
 import {
-  DEFAULT_SETTINGS,
   DEFAULT_LIMITS,
   CATEGORY_IDS,
   CATEGORIES,
@@ -12,8 +11,9 @@ import { fetchOpenRouterModels, validateOpenRouterKey, isVisionModel, modelDispl
 import { hashPin, randomSalt, PIN_ALGO_PBKDF2 } from '../utils/security.js';
 import { isBiometricAvailable, registerBiometric } from '../platform/biometric.js';
 import { safeLoad, safeSave } from '../utils/storage.js';
+import { exportBackup, parseBackup, readFileAsText, summarizeBackup } from '../utils/backup.js';
 import { PrimaryButton, GhostButton } from '../components/ui/Button.jsx';
-import { Field, TextInput, SelectInput, ToggleInput } from '../components/ui/Input.jsx';
+import { Field, TextInput } from '../components/ui/Input.jsx';
 import { Spinner } from '../components/ui/Spinner.jsx';
 
 function ValidationDetails({ info }) {
@@ -332,7 +332,7 @@ function LimitsSection() {
   );
 }
 
-function CombinationEditor({ index, combo, isFirst, onAddDoc, onRemoveDoc, onRemove }) {
+function CombinationEditor({ index: _index, combo, isFirst, onAddDoc, onRemoveDoc, onRemove }) {
   return (
     <div className="rounded-xl border border-black/10 bg-white p-3 shadow-sm relative group">
       <div className="flex flex-wrap gap-2 mb-2 pr-8">
@@ -363,7 +363,7 @@ function CombinationEditor({ index, combo, isFirst, onAddDoc, onRemoveDoc, onRem
 }
 
 function DocsSection() {
-  const { settings, setSettings, toast } = useAppContext();
+  const { settings, setSettings } = useAppContext();
   const reqs = settings.requiredDocs || {};
   const alts = Array.isArray(reqs.alternatives) ? reqs.alternatives : [];
   const setAlts = (next) => setSettings({ requiredDocs: { ...reqs, alternatives: next } });
@@ -392,6 +392,87 @@ function DocsSection() {
   );
 }
 
+function BackupSection({ askConfirm }) {
+  const { trips, setTrips, settings, setSettings, toast } = useAppContext();
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+
+  const onExport = () => {
+    try {
+      const { filename, count } = exportBackup({ trips, settings });
+      toast(`Backup esportato (${count} trasferte) → ${filename}`, "success");
+    } catch (e) {
+      toast(e?.message || "Export fallito", "error");
+    }
+  };
+
+  const onImportClick = () => fileRef.current?.click();
+
+  const onFileChosen = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const text = await readFileAsText(file);
+      const parsed = parseBackup(text);
+      const { tripCount, expenseCount, exportedAt } = summarizeBackup(parsed);
+      askConfirm({
+        title: "Ripristinare il backup?",
+        message: `Trovate ${tripCount} trasfert${tripCount === 1 ? "a" : "e"} con ${expenseCount} spes${expenseCount === 1 ? "a" : "e"}${exportedAt ? ` (esportato il ${new Date(exportedAt).toLocaleDateString("it-IT")})` : ""}. Le tue trasferte attuali verranno sostituite. Continuare?`,
+        danger: true,
+        confirmLabel: "Ripristina",
+        onConfirm: () => {
+          setTrips(parsed.trips);
+          if (parsed.settings && Object.keys(parsed.settings).length > 0) {
+            setSettings(parsed.settings);
+          }
+          askConfirm(null);
+          toast(`Backup ripristinato: ${tripCount} trasferte`, "success");
+        },
+      });
+    } catch (err) {
+      toast(err?.message || "Import fallito", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="bg-white rounded-2xl shadow-soft p-5 flex flex-col gap-4">
+      <div>
+        <h3 className="text-sm font-bold uppercase tracking-wide text-ink/60">Backup</h3>
+        <p className="text-xs text-ink/50 mt-0.5">
+          Esporta o ripristina trasferte e preferenze. La API key e i dati di sicurezza non vengono inclusi.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <button
+          onClick={onExport}
+          disabled={busy || (trips.length === 0)}
+          className="h-11 rounded-xl bg-white border border-black/10 shadow-soft text-sm font-semibold text-ink active:scale-[0.98] disabled:opacity-40 inline-flex items-center justify-center gap-2"
+        >
+          ⬇️ Esporta backup
+        </button>
+        <button
+          onClick={onImportClick}
+          disabled={busy}
+          className="h-11 rounded-xl bg-white border border-black/10 shadow-soft text-sm font-semibold text-ink active:scale-[0.98] disabled:opacity-40 inline-flex items-center justify-center gap-2"
+        >
+          ⬆️ Ripristina backup
+        </button>
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={onFileChosen}
+      />
+    </section>
+  );
+}
+
 export function SettingsView({ askConfirm }) {
   const { settings, setSettings, toast } = useAppContext();
   const [apiKey, setApiKey] = useState(settings.apiKey || "");
@@ -405,6 +486,7 @@ export function SettingsView({ askConfirm }) {
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => { setApiKey(settings.apiKey || ""); setModel(settings.model || MODELS[0].id); }, [settings.apiKey, settings.model]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (!models) loadModels(false); }, []);
 
   async function loadModels(force) {
@@ -470,6 +552,7 @@ export function SettingsView({ askConfirm }) {
       <SecuritySection askConfirm={askConfirm} />
       <LimitsSection />
       <DocsSection />
+      <BackupSection askConfirm={askConfirm} />
     </div>
   );
 }
