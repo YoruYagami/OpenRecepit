@@ -41,7 +41,7 @@ export function LockScreen({ settings, onUnlock, onForget }) {
 
   useEffect(() => () => clearTimeout(resetTimerRef.current), []);
 
-  const pinLen = settings.pinLength || 4;
+  const pinLen = settings.pinLength || 6;
   const bioAvailable = settings.biometricEnabled && !!settings.biometricCredId;
   const pinFails = settings.pinFails || 0;
   const lockUntil = settings.pinLockUntil || 0;

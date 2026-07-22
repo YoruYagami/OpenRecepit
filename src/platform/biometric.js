@@ -1,9 +1,23 @@
-// Biometric unlock via the WebAuthn platform authenticator (Face ID / Touch ID /
-// fingerprint / Windows Hello). Requires a secure context (HTTPS or localhost).
+// Biometric unlock. On the native Android app it uses the system
+// BiometricPrompt via the Capacitor plugin (the WebView has no WebAuthn);
+// on the web/PWA it uses the WebAuthn platform authenticator (Face ID /
+// Touch ID / fingerprint / Windows Hello — requires HTTPS or localhost).
+import { Capacitor } from "@capacitor/core";
+import { BiometricAuth } from "@aparajita/capacitor-biometric-auth";
 import { b64urlEncode, b64urlDecode } from "../utils/security.js";
+
+const isNative = () => Capacitor.isNativePlatform();
+const NATIVE_CRED = "native";
 
 /* ---------- platform availability ---------- */
 export async function isBiometricAvailable() {
+  if (isNative()) {
+    try {
+      return !!(await BiometricAuth.checkBiometry()).isAvailable;
+    } catch {
+      return false;
+    }
+  }
   if (!window.PublicKeyCredential) return false;
   try {
     return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
@@ -14,6 +28,14 @@ export async function isBiometricAvailable() {
 
 /* ---------- registration ---------- */
 export async function registerBiometric() {
+  if (isNative()) {
+    // No enrollment needed natively: one successful prompt confirms it works.
+    await BiometricAuth.authenticate({
+      reason: "Conferma per attivare lo sblocco biometrico",
+      cancelTitle: "Annulla",
+    });
+    return NATIVE_CRED;
+  }
   if (!window.PublicKeyCredential) throw new Error("WebAuthn non supportato");
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   const userId = crypto.getRandomValues(new Uint8Array(16));
@@ -41,6 +63,17 @@ export async function registerBiometric() {
 
 /* ---------- verification ---------- */
 export async function verifyBiometric(credIdB64) {
+  if (isNative() || credIdB64 === NATIVE_CRED) {
+    try {
+      await BiometricAuth.authenticate({
+        reason: "Sblocca Scontrini Trasferta",
+        cancelTitle: "Annulla",
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
   if (!window.PublicKeyCredential) throw new Error("WebAuthn non supportato");
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   const id = b64urlDecode(credIdB64);

@@ -230,11 +230,14 @@ function ThemeSection() {
   );
 }
 
+// New PINs are always 6 digits; existing 4-digit PINs keep working until reset.
+const PIN_LENGTH = 6;
+
 function SecuritySection({ askConfirm }) {
   const { settings, setSettings, toast } = useAppContext();
   const [pin1, setPin1] = useState("");
   const [pin2, setPin2] = useState("");
-  const [pinLength, setPinLength] = useState(settings.pinLength || 4);
+  const pinLength = PIN_LENGTH;
   const [bioAvailable, setBioAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -319,7 +322,7 @@ function SecuritySection({ askConfirm }) {
                 <Icon name="lock" className="w-4 h-4" /> PIN attivo
               </p>
               <p className="text-xs text-ok/80">
-                Lunghezza: {settings.pinLength || 4} cifre
+                Lunghezza: {settings.pinLength || 6} cifre
               </p>
             </div>
             <button
@@ -353,24 +356,7 @@ function SecuritySection({ askConfirm }) {
         </>
       ) : (
         <>
-          <Field label="Lunghezza PIN">
-            <div className="flex gap-2">
-              {[4, 6].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => {
-                    setPinLength(n);
-                    setPin1("");
-                    setPin2("");
-                  }}
-                  className={`flex-1 h-11 rounded-xl text-sm font-semibold border active:scale-[0.98] ${pinLength === n ? "bg-ink text-paper border-ink" : "bg-surface text-ink border-line-strong"}`}
-                >
-                  {n} cifre
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field label="Nuovo PIN">
+          <Field label="Nuovo PIN (6 cifre)">
             <TextInput
               type="password"
               inputMode="numeric"

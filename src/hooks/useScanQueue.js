@@ -3,6 +3,7 @@ import { useAppContext } from "../context/AppContext.jsx";
 import { useNav } from "../navigation/NavProvider.jsx";
 import { analyzeReceipt } from "../api/openRouter.js";
 import { fileSha256, fileToResizedDataURL } from "../utils/image.js";
+import { readFile } from "../utils/file.js";
 import { buildExpenseFromQueueItem } from "../utils/expenseImages.js";
 import { emptyExpenseData, findContentDuplicate } from "../utils/expenseLogic.js";
 import { uid } from "../utils/formatters.js";
@@ -12,6 +13,8 @@ const MAX_IMAGES_PER_BATCH = 30;
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 // Parallel analyses: big batches finish ~3x faster without hammering the API.
 const ANALYZE_CONCURRENCY = 3;
+
+const isPdfFile = (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name || "");
 
 /*
  * The entire scan pipeline, extracted from App: file intake → resize/hash →
@@ -96,7 +99,9 @@ export function useScanQueue({ pickFiles }) {
         const parsed = await analyzeReceipt({
           apiKey: settings.apiKey,
           model: settings.model,
-          imageDataUrl: item.full,
+          ...(item.isPdf
+            ? { pdfDataUrl: item.full, fileName: item.fileName }
+            : { imageDataUrl: item.full }),
           signal,
         });
         const targetTrip = tripsRef.current.find((t) => t.id === item.tripId);
@@ -170,23 +175,29 @@ export function useScanQueue({ pickFiles }) {
             return { skipped: true, imageHash };
           }
           if (imageHash) seenInBatch.add(imageHash);
+          const isPdf = isPdfFile(file);
           try {
-            [full, thumb] = await Promise.all([
-              fileToResizedDataURL(file, 1280, 0.85),
-              fileToResizedDataURL(file, 320, 0.6),
-            ]);
+            if (isPdf) {
+              full = await readFile(file, { as: "dataURL" });
+            } else {
+              [full, thumb] = await Promise.all([
+                fileToResizedDataURL(file, 1280, 0.85),
+                fileToResizedDataURL(file, 320, 0.6),
+              ]);
+            }
           } catch (err) {
-            error = err?.message || "Impossibile leggere l'immagine";
+            error = err?.message || "Impossibile leggere il file";
           }
           return {
             id: uid(),
             tripId,
-            fileName: file.name || "scontrino.jpg",
+            fileName: file.name || (isPdf ? "documento.pdf" : "scontrino.jpg"),
             status: error ? "error" : "pending",
             error,
             thumb,
             full,
             imageHash,
+            isPdf,
             data: null,
           };
         })

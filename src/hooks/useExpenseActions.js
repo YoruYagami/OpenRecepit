@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import { useAppContext } from "../context/AppContext.jsx";
 import { fileSha256, fileToResizedDataURL } from "../utils/image.js";
+import { readFile } from "../utils/file.js";
 import { storeFullImage } from "../utils/expenseImages.js";
 import { emptyExpenseData } from "../utils/expenseLogic.js";
 import { uid } from "../utils/formatters.js";
@@ -107,11 +108,23 @@ export function useExpenseActions({ pickFiles }) {
           } catch (e) {
             console.debug("attachment hash failed", e);
           }
-          const [full, thumb] = await Promise.all([
-            fileToResizedDataURL(file, 1280, 0.85),
-            fileToResizedDataURL(file, 320, 0.6),
-          ]);
-          built.push({ thumb, imageHash, ...(await storeFullImage(full)) });
+          const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+          if (isPdf) {
+            const dataUrl = await readFile(file, { as: "dataURL" });
+            built.push({
+              thumb: null,
+              imageHash,
+              pdf: true,
+              fileName: file.name || "documento.pdf",
+              ...(await storeFullImage(dataUrl)),
+            });
+          } else {
+            const [full, thumb] = await Promise.all([
+              fileToResizedDataURL(file, 1280, 0.85),
+              fileToResizedDataURL(file, 320, 0.6),
+            ]);
+            built.push({ thumb, imageHash, ...(await storeFullImage(full)) });
+          }
         } catch (e) {
           toast("Errore allegato: " + e?.message, "error");
         }

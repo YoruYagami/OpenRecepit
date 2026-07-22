@@ -56,7 +56,7 @@ export const DEFAULT_SETTINGS = {
   pinEnabled: false,
   pinHash: null,
   pinSalt: null,
-  pinLength: 4,
+  pinLength: 6,
   biometricEnabled: false,
   biometricCredId: null,
   expenseLimits: { ...DEFAULT_LIMITS },

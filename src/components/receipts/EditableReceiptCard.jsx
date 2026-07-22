@@ -33,12 +33,17 @@ export function EditableReceiptCard({
     if (ev) ev.stopPropagation();
     const url = override ? override.url : previewUrl;
     const fullRef = override ? override.fullRef : item?.full ? null : item?.fullRef;
+    const pdf = override ? !!override.pdf : !!(item?.isPdf || item?.data?.pdf);
     if ((!url && !fullRef) || !onViewImage) return;
     onViewImage({
       url,
       fullRef,
+      pdf,
       caption: item?.data?.esercente || item?.fileName || "Scontrino",
-      filename: `${item?.data?.esercente || item?.fileName || "scontrino"}_${item?.data?.data || ""}`,
+      filename:
+        (override && override.fileName) ||
+        (pdf && (item?.fileName || item?.data?.fileName)) ||
+        `${item?.data?.esercente || item?.fileName || "scontrino"}_${item?.data?.data || ""}`,
     });
   };
   const status = item.status;
@@ -165,6 +170,11 @@ export function EditableReceiptCard({
           >
             {item.thumb ? (
               <img src={item.thumb} alt="" className="w-full h-full object-cover" />
+            ) : item.isPdf || item.data?.pdf ? (
+              <span className="flex flex-col items-center gap-0.5 text-ink/50">
+                <Icon name="fileText" className="w-7 h-7" />
+                <span className="text-[8px] font-bold uppercase">PDF</span>
+              </span>
             ) : (
               <Icon name="receipt" className="w-7 h-7 text-ink/40" />
             )}
@@ -183,11 +193,22 @@ export function EditableReceiptCard({
                 openViewer(ev, {
                   url: img.full || img.thumb,
                   fullRef: img.full ? null : img.fullRef,
+                  pdf: !!img.pdf,
+                  fileName: img.fileName,
                 })
               }
               className="w-20 h-24 rounded-xl bg-surface-2 overflow-hidden grid place-items-center active:scale-95 transition relative shrink-0"
             >
-              <img src={img.thumb} alt="" className="w-full h-full object-cover" />
+              {img.pdf ? (
+                <span className="flex flex-col items-center gap-1 px-1 text-ink/60">
+                  <Icon name="fileText" className="w-6 h-6" />
+                  <span className="text-[9px] font-semibold truncate max-w-[64px]">
+                    {img.fileName || "PDF"}
+                  </span>
+                </span>
+              ) : (
+                <img src={img.thumb} alt="" className="w-full h-full object-cover" />
+              )}
               <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] grid place-items-center backdrop-blur-sm">
                 <Icon name="zoomIn" className="w-3 h-3" />
               </span>

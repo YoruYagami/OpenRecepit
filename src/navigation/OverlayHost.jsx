@@ -4,6 +4,8 @@ import { Overlay } from "../components/ui/Overlay.jsx";
 import { ConfirmBody } from "../components/dialogs/ConfirmDialog.jsx";
 import { TripFormBody } from "../components/dialogs/TripFormModal.jsx";
 import { ImageViewerBody } from "../components/dialogs/ImageViewer.jsx";
+import { SharedFileSheet } from "../components/dialogs/SharedFileSheet.jsx";
+import { ExpensePickerBody } from "../components/dialogs/ExpensePicker.jsx";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { Spinner } from "../components/ui/Spinner.jsx";
 
@@ -34,6 +36,18 @@ export function OverlayHost({ scanQueue, trips, settings, onViewImage }) {
             return (
               <Overlay key={d.id} variant="sheet" onClose={closeTopOverlay}>
                 <TripFormBody {...d.props} onClose={closeTopOverlay} />
+              </Overlay>
+            );
+          case "sharedFile":
+            return (
+              <Overlay key={d.id} variant="sheet" onClose={closeTopOverlay}>
+                <SharedFileSheet {...d.props} onClose={closeTopOverlay} />
+              </Overlay>
+            );
+          case "expensePicker":
+            return (
+              <Overlay key={d.id} variant="sheet" closeOnBackdrop onClose={closeTopOverlay}>
+                <ExpensePickerBody trips={trips} {...d.props} onClose={closeTopOverlay} />
               </Overlay>
             );
           case "imageViewer":

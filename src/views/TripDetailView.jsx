@@ -447,8 +447,10 @@ export function TripDetailView({
                             onViewImage({
                               url: previewUrl,
                               fullRef: e.full ? null : e.fullRef,
+                              pdf: !!e.pdf,
                               caption: e.esercente,
-                              filename: `${e.esercente || "scontrino"}_${e.data || ""}`,
+                              filename:
+                                e.fileName || `${e.esercente || "scontrino"}_${e.data || ""}`,
                             });
                           } else {
                             setEditingExpenseId(e.id);
@@ -461,6 +463,8 @@ export function TripDetailView({
                       >
                         {e.thumb ? (
                           <img src={e.thumb} alt="" className="w-full h-full object-cover" />
+                        ) : e.pdf ? (
+                          <Icon name="fileText" className="w-5 h-5" />
                         ) : (
                           <span className="text-xl">{c.icon}</span>
                         )}

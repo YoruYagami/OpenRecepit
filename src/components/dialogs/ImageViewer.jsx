@@ -7,7 +7,7 @@ import { getImage } from "../../utils/imageStore.js";
  * Opens instantly with whatever url it was given (usually the thumbnail) and
  * swaps in the stored full-resolution image when it loads.
  */
-export function ImageViewerBody({ url, fullRef, caption, filename, onClose }) {
+export function ImageViewerBody({ url, fullRef, pdf, caption, filename, onClose }) {
   const [displayUrl, setDisplayUrl] = useState(url || null);
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function ImageViewerBody({ url, fullRef, caption, filename, onClose }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${(filename || caption || "scontrino").replace(/[^\w.-]+/g, "_")}.jpg`;
+      a.download = `${(filename || caption || "scontrino").replace(/[^\w.-]+/g, "_")}${pdf ? ".pdf" : ".jpg"}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -68,15 +68,33 @@ export function ImageViewerBody({ url, fullRef, caption, filename, onClose }) {
         </button>
       </div>
       <div className="flex-1 min-h-0 relative px-2 pb-6">
-        <div className="w-full h-full relative group">
-          {displayUrl && (
-            <img
-              src={displayUrl}
-              alt={caption || ""}
-              className="absolute inset-0 w-full h-full object-contain"
-            />
-          )}
-        </div>
+        {pdf ? (
+          <div
+            className="w-full h-full flex flex-col items-center justify-center gap-4 text-white/80"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Icon name="fileText" className="w-16 h-16 opacity-70" />
+            <p className="text-sm font-semibold max-w-[80%] truncate">
+              {filename || caption || "Documento PDF"}
+            </p>
+            <button
+              onClick={downloadImage}
+              className="h-11 px-5 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-semibold inline-flex items-center gap-2 active:scale-95"
+            >
+              <Icon name="download" className="w-4 h-4" /> Scarica PDF
+            </button>
+          </div>
+        ) : (
+          <div className="w-full h-full relative group">
+            {displayUrl && (
+              <img
+                src={displayUrl}
+                alt={caption || ""}
+                className="absolute inset-0 w-full h-full object-contain"
+              />
+            )}
+          </div>
+        )}
       </div>
     </>
   );

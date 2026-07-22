@@ -30,6 +30,7 @@ export async function buildExpenseFromQueueItem(item) {
     thumb: item.thumb,
     ...primary,
     imageHash: item.imageHash,
+    ...(item.isPdf ? { pdf: true, fileName: item.fileName } : {}),
     ...(extraImages.length > 0 ? { extraImages } : {}),
     createdAt: Date.now(),
   };

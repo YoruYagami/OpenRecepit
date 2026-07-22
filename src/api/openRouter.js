@@ -157,9 +157,15 @@ function authHeaders(apiKey) {
   };
 }
 
-export async function analyzeReceipt({ apiKey, model, imageDataUrl, signal }) {
+export async function analyzeReceipt({ apiKey, model, imageDataUrl, pdfDataUrl, fileName, signal }) {
   if (!apiKey) throw new OpenRouterError("API key mancante", { code: "no_key" });
   if (!model) throw new OpenRouterError("Modello non selezionato", { code: "no_model" });
+
+  // PDFs (e.g. Revolut receipts) go through OpenRouter's file parser with the
+  // free pdf-text engine: digital PDFs carry embedded text, no OCR needed.
+  const docPart = pdfDataUrl
+    ? { type: "file", file: { filename: fileName || "documento.pdf", file_data: pdfDataUrl } }
+    : { type: "image_url", image_url: { url: imageDataUrl } };
 
   const res = await callOpenRouter(
     "https://openrouter.ai/api/v1/chat/completions",
@@ -169,13 +175,13 @@ export async function analyzeReceipt({ apiKey, model, imageDataUrl, signal }) {
       body: JSON.stringify({
         model,
         max_tokens: 1000,
+        ...(pdfDataUrl
+          ? { plugins: [{ id: "file-parser", pdf: { engine: "pdf-text" } }] }
+          : {}),
         messages: [
           {
             role: "user",
-            content: [
-              { type: "image_url", image_url: { url: imageDataUrl } },
-              { type: "text", text: RECEIPT_PROMPT },
-            ],
+            content: [docPart, { type: "text", text: RECEIPT_PROMPT }],
           },
         ],
       }),

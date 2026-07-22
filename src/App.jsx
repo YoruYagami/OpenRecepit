@@ -7,6 +7,7 @@ import { useScanQueue } from "./hooks/useScanQueue.js";
 import { useExpenseActions } from "./hooks/useExpenseActions.js";
 import { useReanalyze } from "./hooks/useReanalyze.js";
 import { useTripActions } from "./hooks/useTripActions.js";
+import { useSharedFile } from "./hooks/useSharedFile.jsx";
 import { downloadFile, tripToCSV, tripToSummary } from "./utils/export.js";
 
 import { BottomTabBar } from "./components/layout/BottomTabBar.jsx";
@@ -63,6 +64,7 @@ function AppInner() {
   const expenses = useExpenseActions({ pickFiles });
   const { reanalyzingId, reanalyzeExpense, reanalyzeTrip } = useReanalyze();
   const { openTripForm, deleteTrip } = useTripActions();
+  useSharedFile();
 
   const openTrip = React.useMemo(
     () => trips.find((t) => t.id === nav.tripId) || null,
