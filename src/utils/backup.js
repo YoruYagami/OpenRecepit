@@ -2,6 +2,8 @@ import { downloadFile } from "./export.js";
 import { readFile } from "./file.js";
 
 export const BACKUP_SCHEMA_VERSION = 1;
+// Historic value: kept so existing backup files stay importable after the
+// app was renamed to OpenRecepit.
 export const BACKUP_MAGIC = "scontrini-trasferta-backup";
 
 function coerceLimits(v) {
@@ -78,7 +80,7 @@ export function buildBackup({ trips, settings }) {
 export async function exportBackup({ trips, settings, filenameSuffix = "" }) {
   const payload = buildBackup({ trips, settings });
   const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const filename = `scontrini-backup${filenameSuffix}-${ts}.json`;
+  const filename = `openrecepit-backup${filenameSuffix}-${ts}.json`;
   const res = await downloadFile(
     filename,
     "application/json;charset=utf-8",
@@ -97,7 +99,7 @@ export function parseBackup(text) {
   if (!data || typeof data !== "object")
     throw new Error("File non valido: contenuto non riconosciuto");
   if (data.magic !== BACKUP_MAGIC)
-    throw new Error("File non riconosciuto come backup di Scontrini Trasferta");
+    throw new Error("File non riconosciuto come backup di OpenRecepit");
   if (typeof data.schemaVersion !== "number" || data.schemaVersion > BACKUP_SCHEMA_VERSION) {
     throw new Error(`Versione backup non supportata (${data.schemaVersion})`);
   }

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Scontrini Trasferta</string>
-    <string name="title_activity_main">Scontrini Trasferta</string>
+    <string name="app_name">OpenRecepit</string>
+    <string name="title_activity_main">OpenRecepit</string>
     <string name="package_name">app.scontrini.trasferta</string>
     <string name="custom_url_scheme">app.scontrini.trasferta</string>
 </resources>

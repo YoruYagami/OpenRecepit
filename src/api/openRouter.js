@@ -153,7 +153,7 @@ function authHeaders(apiKey) {
   return {
     Authorization: `Bearer ${apiKey}`,
     "HTTP-Referer": typeof window !== "undefined" ? window.location.href : "",
-    "X-Title": "Scontrini Trasferta",
+    "X-Title": "OpenRecepit",
   };
 }
 
@@ -275,7 +275,7 @@ export async function validateOpenRouterKey(apiKey, { signal } = {}) {
 export async function fetchOpenRouterModels(apiKey, { signal } = {}) {
   const headers = {
     "HTTP-Referer": typeof window !== "undefined" ? window.location.href : "",
-    "X-Title": "Scontrini Trasferta",
+    "X-Title": "OpenRecepit",
   };
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   const res = await callOpenRouter(

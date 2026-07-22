@@ -6,7 +6,7 @@ import { PrimaryButton, GhostButton } from "../ui/Button.jsx";
 const STEPS = [
   {
     icon: "receipt",
-    title: "Benvenuto in Scontrini Trasferta",
+    title: "Benvenuto in OpenRecepit",
     body: "Fotografa gli scontrini delle tue trasferte e lascia che l'app compili esercente, importo, data e categoria. Tutto resta sul tuo dispositivo: niente account, niente cloud.",
   },
   {

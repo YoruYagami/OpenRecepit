@@ -12,8 +12,8 @@ export default defineConfig({
       injectRegister: null,
       includeAssets: ["favicon.svg", "pwa-icon.svg"],
       manifest: {
-        name: "Scontrini Trasferta",
-        short_name: "Scontrini",
+        name: "OpenRecepit",
+        short_name: "OpenRecepit",
         description: "Scansiona e organizza gli scontrini delle trasferte di lavoro.",
         lang: "it",
         theme_color: "#faf9f7",

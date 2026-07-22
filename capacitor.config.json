@@ -1,6 +1,6 @@
 {
   "appId": "app.scontrini.trasferta",
-  "appName": "Scontrini Trasferta",
+  "appName": "OpenRecepit",
   "webDir": "dist",
   "android": {
     "allowMixedContent": false

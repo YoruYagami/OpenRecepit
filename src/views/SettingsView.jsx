@@ -871,7 +871,7 @@ export function SettingsView({ askConfirm }) {
         <BackupSection askConfirm={askConfirm} />
       </div>
       <p className="text-center text-[11px] text-ink/40 pb-1">
-        Scontrini Trasferta v{APP_VERSION} · dati salvati solo sul dispositivo
+        OpenRecepit v{APP_VERSION} · dati salvati solo sul dispositivo
       </p>
     </div>
   );

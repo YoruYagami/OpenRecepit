@@ -1,4 +1,4 @@
-# Scontrini Trasferta (OpenRecepit)
+# OpenRecepit
 
 App **local-first** per registrare gli scontrini delle trasferte di lavoro: fotografi lo scontrino, l'AI compila esercente, importo, data e categoria, tu confermi. Tutto resta sul dispositivo — niente account, niente backend, niente sync.
 
@@ -15,7 +15,8 @@ Disponibile come **PWA installabile** (browser desktop e mobile) e come **APK An
 - Scansione da fotocamera o galleria con riconoscimento automatico (esercente, importo, data, ora, categoria); analisi in parallelo per i batch
 - Inserimento manuale senza foto e senza API key
 - Rilevamento duplicati per hash immagine e per contenuto (stessa data/importo/esercente)
-- Allegati extra per spesa (es. ricevuta POS fotografata a parte)
+- Allegati extra per spesa: foto e **PDF** (es. ricevuta Revolut), analizzabili con l'AI
+- **Share target Android**: condividi un PDF/immagine da un'altra app → analisi AI con aggancio automatico alla spesa corrispondente, oppure allega a una spesa esistente
 - Filtri per categoria e ricerca testuale nel dettaglio trasferta
 - Avvisi non bloccanti: sopra il limite di rimborso, data fuori trasferta, importo a zero
 - Eliminazione con **Annulla** (undo) invece di dialog di conferma
@@ -31,8 +32,8 @@ Disponibile come **PWA installabile** (browser desktop e mobile) e come **APK An
 - Interfaccia in italiano
 
 **Sicurezza**
-- PIN (PBKDF2-SHA256, 150k iterazioni) con lockout progressivo
-- Sblocco biometrico WebAuthn (impronta / Face ID / Windows Hello) — solo web/PWA, non nella WebView dell'APK
+- PIN a 6 cifre (PBKDF2-SHA256, 150k iterazioni) con lockout progressivo
+- Sblocco biometrico: nativo nell'APK (BiometricPrompt), WebAuthn su web/PWA
 
 ---
 
@@ -141,7 +142,7 @@ I dati di versioni precedenti (immagini inline, localStorage) vengono migrati au
 - **PIN**: PBKDF2-SHA256 a 150.000 iterazioni, salt random 16 byte; i vecchi hash SHA-256 vengono migrati al primo sblocco. Lockout: 30s dopo 5 errori, raddoppia a ogni gruppo.
 - **Il PIN è un blocco UI, non cifratura**: protegge dall'accesso occasionale, non da chi ha accesso ai file del profilo. "PIN dimenticato?" sblocca senza perdere dati.
 - **API key e immagini** sono salvate in chiaro nello storage del browser/app.
-- **Biometria**: WebAuthn (richiede HTTPS o localhost); non disponibile nella WebView Android.
+- **Biometria**: BiometricPrompt nativo nell'APK; WebAuthn su web/PWA (richiede HTTPS o localhost).
 
 ## Privacy
 
@@ -152,4 +153,3 @@ Le immagini scansionate **lasciano il dispositivo** solo verso OpenRouter e il p
 - Nessun sync multi-device (usa Export/Import per migrare)
 - La scansione richiede rete (l'inserimento manuale no)
 - Interfaccia solo in italiano
-- Biometria non disponibile nell'APK (solo PIN)

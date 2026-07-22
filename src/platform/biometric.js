@@ -42,7 +42,7 @@ export async function registerBiometric() {
   const cred = await navigator.credentials.create({
     publicKey: {
       challenge,
-      rp: { name: "Scontrini Trasferta" },
+      rp: { name: "OpenRecepit" },
       user: { id: userId, name: "utente@locale", displayName: "Utente" },
       pubKeyCredParams: [
         { alg: -7, type: "public-key" },
@@ -66,7 +66,7 @@ export async function verifyBiometric(credIdB64) {
   if (isNative() || credIdB64 === NATIVE_CRED) {
     try {
       await BiometricAuth.authenticate({
-        reason: "Sblocca Scontrini Trasferta",
+        reason: "Sblocca OpenRecepit",
         cancelTitle: "Annulla",
       });
       return true;

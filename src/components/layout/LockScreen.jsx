@@ -178,7 +178,7 @@ export function LockScreen({ settings, onUnlock, onForget }) {
     // lower tier could otherwise stay visible over the lock screen).
     <div className="absolute inset-0 z-[200] bg-paper flex flex-col items-center justify-center px-6 fade-in">
       <div className="text-5xl mb-3">{locked ? "⏳" : "🔒"}</div>
-      <h2 className="text-xl font-extrabold text-ink">Scontrini Trasferta</h2>
+      <h2 className="text-xl font-extrabold text-ink">OpenRecepit</h2>
       <p className="text-sm text-ink/60 mt-1">
         {locked
           ? `Riprova fra ${formatRemaining(lockRemaining)}`
