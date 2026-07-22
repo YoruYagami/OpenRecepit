@@ -1,16 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { hashPin, verifyPin, PIN_ALGO_PBKDF2 } from '../../utils/security.js';
-import { verifyBiometric } from '../../platform/biometric.js';
-import { useAppContext } from '../../context/AppContext.jsx';
-import { Spinner } from '../ui/Spinner.jsx';
+import React, { useState, useEffect, useRef } from "react";
+import { hashPin, verifyPin, PIN_ALGO_PBKDF2 } from "../../utils/security.js";
+import { verifyBiometric } from "../../platform/biometric.js";
+import { useAppContext } from "../../context/AppContext.jsx";
+import { Spinner } from "../ui/Spinner.jsx";
+import { Icon } from "../ui/Icon.jsx";
+import { Overlay } from "../ui/Overlay.jsx";
+import { ConfirmBody } from "../dialogs/ConfirmDialog.jsx";
 
 const FAILS_PER_TIER = 5;
 const BASE_LOCK_MS = 30000;
 const MAX_LOCK_MS = 30 * 60 * 1000;
 
 function computeLockMs(totalFails) {
-  if (totalFails < FAILS_PER_TIER) return 0;
-  const tier = Math.floor((totalFails - FAILS_PER_TIER) / FAILS_PER_TIER);
+  // Lock only at the end of each group of FAILS_PER_TIER attempts (5, 10, 15, ...),
+  // doubling the duration each group. Between group boundaries the caller shows the
+  // remaining-attempts hint instead of re-locking on every single wrong PIN.
+  if (totalFails < FAILS_PER_TIER || totalFails % FAILS_PER_TIER !== 0) return 0;
+  const tier = totalFails / FAILS_PER_TIER - 1;
   return Math.min(MAX_LOCK_MS, BASE_LOCK_MS * Math.pow(2, tier));
 }
 
@@ -28,6 +34,12 @@ export function LockScreen({ settings, onUnlock, onForget }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [confirmForget, setConfirmForget] = useState(false);
+  // Pending "clear the failed attempt from the dots" timer. Tracked so typing a
+  // new PIN during the error flash cancels it instead of getting wiped by it.
+  const resetTimerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(resetTimerRef.current), []);
 
   const pinLen = settings.pinLength || 4;
   const bioAvailable = settings.biometricEnabled && !!settings.biometricCredId;
@@ -38,7 +50,8 @@ export function LockScreen({ settings, onUnlock, onForget }) {
 
   useEffect(() => {
     if (!locked) return;
-    const t = setInterval(() => setNow(Date.now()), 500);
+    setNow(Date.now()); // refresh immediately so a freshly-engaged lock shows the correct remaining time
+    const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [locked]);
 
@@ -97,7 +110,9 @@ export function LockScreen({ settings, onUnlock, onForget }) {
           setError(`PIN errato. Altri ${remaining} tentativi prima del blocco`);
         }
         setSettings(updates);
-        setTimeout(() => {
+        clearTimeout(resetTimerRef.current);
+        resetTimerRef.current = setTimeout(() => {
+          resetTimerRef.current = null;
           setError("");
           setPin("");
         }, 1100);
@@ -109,14 +124,32 @@ export function LockScreen({ settings, onUnlock, onForget }) {
 
   const press = (d) => {
     if (busy || locked) return;
-    const next = (pin + d).slice(0, pinLen);
+    // After a failed attempt the wrong PIN stays displayed during the error
+    // flash; a keypress must start a fresh entry, not resubmit the old PIN.
+    let base = pin;
+    if (resetTimerRef.current || pin.length >= pinLen) {
+      clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+      setError("");
+      base = "";
+    }
+    const next = (base + d).slice(0, pinLen);
     setPin(next);
     if (next.length === pinLen) {
       setTimeout(() => tryPin(next), 80);
     }
   };
 
-  const backspace = () => setPin((p) => p.slice(0, -1));
+  const backspace = () => {
+    if (resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+      setError("");
+      setPin("");
+      return;
+    }
+    setPin((p) => p.slice(0, -1));
+  };
 
   const dots = [];
   for (let i = 0; i < pinLen; i++) {
@@ -124,7 +157,7 @@ export function LockScreen({ settings, onUnlock, onForget }) {
       <div
         key={i}
         className={`w-3.5 h-3.5 rounded-full transition-colors ${
-          error ? "bg-red-500" : i < pin.length ? "bg-ink" : "bg-ink/15"
+          error ? "bg-danger-solid" : i < pin.length ? "bg-ink" : "bg-ink/15"
         }`}
       />
     );
@@ -134,23 +167,27 @@ export function LockScreen({ settings, onUnlock, onForget }) {
     <button
       onClick={() => press(d)}
       disabled={busy || locked}
-      className="h-16 rounded-2xl bg-white shadow-soft text-2xl font-semibold text-ink active:scale-95 transition disabled:opacity-50"
+      className="h-16 rounded-2xl bg-surface shadow-soft text-2xl font-semibold text-ink active:scale-95 transition disabled:opacity-50"
     >
       {d}
     </button>
   );
 
   return (
-    <div className="absolute inset-0 z-50 bg-paper flex flex-col items-center justify-center px-6 fade-in">
+    // z-[200]: the PIN gate must sit above every nav overlay (a lightbox at a
+    // lower tier could otherwise stay visible over the lock screen).
+    <div className="absolute inset-0 z-[200] bg-paper flex flex-col items-center justify-center px-6 fade-in">
       <div className="text-5xl mb-3">{locked ? "⏳" : "🔒"}</div>
       <h2 className="text-xl font-extrabold text-ink">Scontrini Trasferta</h2>
       <p className="text-sm text-ink/60 mt-1">
-        {locked ? `Riprova fra ${formatRemaining(lockRemaining)}` : "Inserisci il PIN per sbloccare"}
+        {locked
+          ? `Riprova fra ${formatRemaining(lockRemaining)}`
+          : "Inserisci il PIN per sbloccare"}
       </p>
 
       <div className="flex gap-3 my-6">{dots}</div>
       {error ? (
-        <p className="text-sm text-red-600 -mt-2 mb-4 h-5 text-center px-4">{error}</p>
+        <p className="text-sm text-danger -mt-2 mb-4 h-5 text-center px-4">{error}</p>
       ) : (
         <div className="h-5 mb-4" />
       )}
@@ -162,28 +199,49 @@ export function LockScreen({ settings, onUnlock, onForget }) {
         <button
           onClick={() => tryBiometric(false)}
           disabled={!bioAvailable || busy || locked}
-          className="h-16 rounded-2xl text-2xl text-ink/70 active:scale-95 transition disabled:opacity-25"
+          className="h-16 rounded-2xl text-ink/70 active:scale-95 transition disabled:opacity-25"
           aria-label="Sblocca con biometrico"
         >
-          👆
+          <Icon name="fingerprint" className="w-6 h-6 mx-auto" />
         </button>
         <Key d="0" />
         <button
           onClick={backspace}
           disabled={busy || locked || pin.length === 0}
-          className="h-16 rounded-2xl text-xl text-ink/60 active:scale-95 transition disabled:opacity-30"
+          className="h-16 rounded-2xl text-ink/60 active:scale-95 transition disabled:opacity-30"
           aria-label="Cancella"
         >
-          ⌫
+          <Icon name="backspace" className="w-6 h-6 mx-auto" />
         </button>
       </div>
 
       {busy && <Spinner className="w-5 h-5 mt-5 text-ink/50" />}
 
       {onForget && (
-        <button onClick={onForget} className="mt-8 text-xs text-ink/40 underline-offset-2 hover:underline">
+        <button
+          onClick={() => setConfirmForget(true)}
+          className="mt-8 text-xs text-ink/55 underline-offset-2 hover:underline"
+        >
           PIN dimenticato?
         </button>
+      )}
+
+      {confirmForget && (
+        // Local overlay, outside the nav stack: the lock screen sits above
+        // navigation and must not create history entries.
+        <Overlay variant="sheet" closeOnBackdrop onClose={() => setConfirmForget(false)}>
+          <ConfirmBody
+            title="Reimpostare il PIN?"
+            message="Il PIN (e lo sblocco biometrico) verrà rimosso e l'app verrà sbloccata. I tuoi dati restano sul dispositivo. Potrai impostare un nuovo PIN dalle impostazioni."
+            danger
+            confirmLabel="Reimposta"
+            onConfirm={() => {
+              setConfirmForget(false);
+              onForget();
+            }}
+            onCancel={() => setConfirmForget(false)}
+          />
+        </Overlay>
       )}
     </div>
   );

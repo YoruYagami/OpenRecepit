@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -30,18 +30,18 @@ export class ErrorBoundary extends React.Component {
 
     return (
       <div className="min-h-full bg-[#1a1a2e] flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-soft-lg p-6 text-center fade-in">
+        <div className="w-full max-w-md bg-surface rounded-2xl shadow-soft-lg p-6 text-center fade-in">
           <div className="text-5xl mb-3">⚠️</div>
           <h1 className="text-xl font-extrabold text-ink mb-1">Qualcosa è andato storto</h1>
           <p className="text-sm text-ink/60 mb-4">
             L'app ha incontrato un errore imprevisto. I tuoi dati sono al sicuro nel dispositivo.
           </p>
-          <pre className="text-[11px] text-left text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 mb-4 max-h-40 overflow-auto whitespace-pre-wrap break-words">
+          <pre className="text-[11px] text-left text-danger bg-danger-soft border border-danger-line rounded-lg p-3 mb-4 max-h-40 overflow-auto whitespace-pre-wrap break-words">
             {message}
           </pre>
           <button
             onClick={this.handleReload}
-            className="h-11 px-5 rounded-xl bg-ink text-white font-semibold active:scale-[0.98] shadow-soft"
+            className="h-11 px-5 rounded-xl bg-ink text-paper font-semibold active:scale-[0.98] shadow-soft"
           >
             Ricarica l'app
           </button>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Scontrini Trasferta">
+  <rect width="512" height="512" rx="112" fill="#1a1a2e"/>
+  <!-- receipt body (kept within the maskable safe zone) -->
+  <path d="M176 116 h160 a20 20 0 0 1 20 20 v224
+           l-26 -18 -26 18 -26 -18 -26 18 -26 -18 -26 18 -26 -18 -26 18
+           v-224 a20 20 0 0 1 20 -20 z"
+        fill="#faf9f7"/>
+  <rect x="200" y="168" width="112" height="16" rx="8" fill="#1a1a2e" opacity="0.18"/>
+  <rect x="200" y="204" width="84" height="16" rx="8" fill="#1a1a2e" opacity="0.18"/>
+  <rect x="200" y="240" width="112" height="16" rx="8" fill="#1a1a2e" opacity="0.18"/>
+  <!-- accent check badge -->
+  <circle cx="332" cy="332" r="64" fill="#2a9d8f"/>
+  <path d="M305 333 l18 18 l34 -40" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

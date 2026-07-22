@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 export function ToastStack({ toasts }) {
   return (
@@ -8,13 +8,23 @@ export function ToastStack({ toasts }) {
           key={t.id}
           className={`toast-in pointer-events-auto rounded-xl px-4 py-3 text-sm shadow-soft-lg border ${
             t.type === "error"
-              ? "bg-red-50 border-red-200 text-red-800"
+              ? "bg-danger-soft border-danger-line text-danger"
               : t.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-              : "bg-white border-black/5 text-ink"
+                ? "bg-ok-soft border-ok-line text-ok"
+                : "bg-surface border-line text-ink"
           }`}
         >
-          {t.message}
+          <div className="flex items-center gap-3">
+            <span className="flex-1 min-w-0">{t.message}</span>
+            {t.actionLabel && t.onAction && (
+              <button
+                onClick={t.onAction}
+                className="shrink-0 font-bold underline underline-offset-2 active:scale-95"
+              >
+                {t.actionLabel}
+              </button>
+            )}
+          </div>
         </div>
       ))}
     </div>

@@ -13,9 +13,30 @@ function openDB() {
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => {
+      // Don't cache a rejected promise — a transient open failure (blocked
+      // upgrade, private-mode quirk) would otherwise break persistence for the
+      // whole session. Clearing it lets the next call retry opening.
+      dbPromise = null;
+      reject(req.error);
+    };
+  });
+  // Belt-and-braces: if the promise rejects for any other reason, allow a retry.
+  dbPromise.catch(() => {
+    dbPromise = null;
   });
   return dbPromise;
+}
+
+/** True for QuotaExceededError across browsers (name or legacy numeric code). */
+export function isQuotaError(e) {
+  return (
+    e &&
+    (e.name === "QuotaExceededError" ||
+      e.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      e.code === 22 ||
+      e.code === 1014)
+  );
 }
 
 export async function idbGet(key) {
@@ -36,6 +57,16 @@ export async function idbSet(key, value) {
     tx.oncomplete = () => resolve(true);
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error || new Error("idb abort"));
+  });
+}
+
+export async function idbKeys() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const req = tx.objectStore(STORE).getAllKeys();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
   });
 }
 

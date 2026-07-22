@@ -17,28 +17,6 @@ yarn-error.log*
 .env.local
 .env.*.local
 
-# Capacitor / Android build artefacts
-android/app/build/
-android/build/
-android/.gradle/
-android/local.properties
-android/app/release/
-android/app/debug/
-android/capacitor-cordova-android-plugins/
-android/app/src/main/assets/public/
-*.apk
-*.aab
-
-# Signing keys (never commit!)
-*.keystore
-*.jks
-keystore.properties
-
-# iOS (in case you add it later)
-ios/App/build/
-ios/App/Pods/
-ios/App/output/
-
 # Editor / IDE
 .vscode/
 .idea/

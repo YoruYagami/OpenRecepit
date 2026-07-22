@@ -1,6 +1,13 @@
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
 
-export const todayISO = () => new Date().toISOString().slice(0, 10);
+// Local calendar date, not UTC: toISOString() would return yesterday's date
+// between midnight and 1-2 AM in Italian timezones.
+export const todayISO = () => {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+};
 
 export const fmtMoney = (n, cur = "EUR") => {
   if (typeof n !== "number" || isNaN(n)) return "—";
@@ -11,7 +18,9 @@ export const fmtMoney = (n, cur = "EUR") => {
       minimumFractionDigits: 2,
     }).format(n);
   } catch {
-    return `€${n.toFixed(2)}`;
+    // Intl throws on unknown currency codes (free-text "valuta"); don't
+    // mislabel a foreign amount with a € sign.
+    return `${n.toFixed(2)} ${cur || "EUR"}`;
   }
 };
 
@@ -67,10 +76,15 @@ export const fmtDayLabel = (iso) => {
 export const fmtDateRange = (start, end) => {
   if (!start && !end) return "";
   if (start && end) {
-    const a = new Date(start), b = new Date(end);
+    const a = new Date(start),
+      b = new Date(end);
     if (!isNaN(a) && !isNaN(b)) {
       const sameYear = a.getFullYear() === b.getFullYear();
-      const sa = a.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: sameYear ? undefined : "numeric" });
+      const sa = a.toLocaleDateString("it-IT", {
+        day: "2-digit",
+        month: "short",
+        year: sameYear ? undefined : "numeric",
+      });
       const sb = b.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" });
       return `${sa} – ${sb}`;
     }

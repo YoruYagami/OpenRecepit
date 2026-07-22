@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 512 512" role="img" aria-label="Scontrini">
+  <rect width="512" height="512" rx="112" fill="#1a1a2e"/>
+  <path d="M168 104 h176 a20 20 0 0 1 20 20 v272
+           l-28 -20 -28 20 -28 -20 -28 20 -28 -20 -28 20 -28 -20 -28 20
+           v-272 a20 20 0 0 1 20 -20 z"
+        fill="#faf9f7"/>
+  <rect x="196" y="168" width="120" height="20" rx="10" fill="#1a1a2e" opacity="0.2"/>
+  <rect x="196" y="212" width="88" height="20" rx="10" fill="#1a1a2e" opacity="0.2"/>
+  <circle cx="328" cy="332" r="68" fill="#2a9d8f"/>
+  <path d="M299 333 l20 20 l38 -44" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

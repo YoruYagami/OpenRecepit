@@ -1,9 +1,11 @@
-import { RECEIPT_PROMPT, CATEGORY_IDS, MODELS } from '../constants.js';
-
-export const todayISO = () => new Date().toISOString().slice(0, 10);
+import { RECEIPT_PROMPT, CATEGORY_IDS, MODELS } from "../constants.js";
+import { todayISO } from "../utils/formatters.js";
 
 const DEFAULT_TIMEOUT_MS = 60000;
 const MAX_RETRIES = 2;
+// Cap how long we honor a server-supplied Retry-After so a large value
+// (e.g. "Retry-After: 3600") can't freeze the UI for minutes/hours.
+const MAX_RETRY_AFTER_MS = 30000;
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 class OpenRouterError extends Error {
@@ -16,7 +18,7 @@ class OpenRouterError extends Error {
   }
 }
 
-function mapStatusToMessage(status, fallback) {
+export function mapStatusToMessage(status, fallback) {
   switch (status) {
     case 401:
     case 403:
@@ -65,7 +67,10 @@ async function fetchWithTimeout(url, init = {}, timeoutMs = DEFAULT_TIMEOUT_MS, 
     if (externalSignal.aborted) controller.abort(externalSignal.reason);
     else externalSignal.addEventListener("abort", onExternalAbort);
   }
-  const t = setTimeout(() => controller.abort(new DOMException("Timeout", "TimeoutError")), timeoutMs);
+  const t = setTimeout(
+    () => controller.abort(new DOMException("Timeout", "TimeoutError")),
+    timeoutMs
+  );
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
@@ -74,7 +79,7 @@ async function fetchWithTimeout(url, init = {}, timeoutMs = DEFAULT_TIMEOUT_MS, 
   }
 }
 
-function parseRetryAfter(res) {
+export function parseRetryAfter(res) {
   const h = res.headers.get("retry-after");
   if (!h) return null;
   const asInt = parseInt(h, 10);
@@ -84,7 +89,19 @@ function parseRetryAfter(res) {
   return null;
 }
 
-async function callOpenRouter(url, init, { signal, timeoutMs = DEFAULT_TIMEOUT_MS, retries = MAX_RETRIES } = {}) {
+async function callOpenRouter(
+  url,
+  init,
+  { signal, timeoutMs = DEFAULT_TIMEOUT_MS, retries = MAX_RETRIES } = {}
+) {
+  // Fail fast when the device is offline instead of burning the retry budget on
+  // requests that cannot possibly succeed.
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    throw new OpenRouterError("Sei offline — la scansione richiede una connessione", {
+      code: "offline",
+      retryable: false,
+    });
+  }
   let attempt = 0;
   let lastError = null;
   while (attempt <= retries) {
@@ -94,24 +111,34 @@ async function callOpenRouter(url, init, { signal, timeoutMs = DEFAULT_TIMEOUT_M
       const isRetryable = RETRYABLE_STATUS.has(res.status);
       const errText = await res.text().catch(() => "");
       if (!isRetryable || attempt === retries) {
-        throw new OpenRouterError(
-          mapStatusToMessage(res.status, errText.slice(0, 200)),
-          { status: res.status, retryable: isRetryable }
-        );
+        throw new OpenRouterError(mapStatusToMessage(res.status, errText.slice(0, 200)), {
+          status: res.status,
+          retryable: isRetryable,
+        });
       }
       const retryAfter = parseRetryAfter(res);
-      const backoff = retryAfter != null ? retryAfter : Math.min(8000, 500 * Math.pow(2, attempt));
+      const backoff =
+        retryAfter != null
+          ? Math.min(MAX_RETRY_AFTER_MS, retryAfter)
+          : Math.min(8000, 500 * Math.pow(2, attempt));
       await sleep(backoff, signal);
     } catch (e) {
-      if (e?.name === "AbortError" && !signal?.aborted) {
-        // our timeout fired
-        lastError = new OpenRouterError("Timeout — il modello non ha risposto in tempo", { code: "timeout", retryable: true });
+      if (e?.name === "TimeoutError" || (e?.name === "AbortError" && !signal?.aborted)) {
+        // our timeout fired (modern runtimes reject with the abort reason -> "TimeoutError";
+        // legacy runtimes that drop the reason reject with a generic "AbortError")
+        lastError = new OpenRouterError("Timeout — il modello non ha risposto in tempo", {
+          code: "timeout",
+          retryable: true,
+        });
       } else if (e?.name === "AbortError") {
         throw e;
       } else if (e instanceof OpenRouterError) {
         throw e;
       } else {
-        lastError = new OpenRouterError(e?.message || "Errore di rete", { code: "network", retryable: true });
+        lastError = new OpenRouterError(e?.message || "Errore di rete", {
+          code: "network",
+          retryable: true,
+        });
       }
       if (attempt === retries) throw lastError;
       const backoff = Math.min(8000, 500 * Math.pow(2, attempt));
@@ -157,14 +184,42 @@ export async function analyzeReceipt({ apiKey, model, imageDataUrl, signal }) {
   );
 
   const data = await res.json();
-  const text = data.choices?.[0]?.message?.content;
+  // Some providers return content as an array of parts instead of a string.
+  const content = data.choices?.[0]?.message?.content;
+  const text = Array.isArray(content)
+    ? content.map((p) => (typeof p === "string" ? p : p?.text || "")).join("")
+    : content;
   if (!text) throw new OpenRouterError("Risposta vuota dal modello");
 
   return parseReceiptResponse(text);
 }
 
+/**
+ * Parse a monetary amount that may arrive as a number or as a localized string
+ * ("12,50 €", "1.234,56", "1,234.56"). With both separators present the
+ * rightmost one is the decimal mark; a repeated single separator is thousands.
+ */
+export function parseImporto(raw) {
+  if (typeof raw === "number") return raw;
+  let s = String(raw ?? "").replace(/[^0-9.,-]/g, "");
+  const lastComma = s.lastIndexOf(",");
+  const lastDot = s.lastIndexOf(".");
+  if (lastComma !== -1 && lastDot !== -1) {
+    if (lastComma > lastDot) s = s.replace(/\./g, "").replace(/,/g, ".");
+    else s = s.replace(/,/g, "");
+  } else if (lastComma !== -1) {
+    const commas = s.match(/,/g).length;
+    s = commas > 1 ? s.replace(/,/g, "") : s.replace(",", ".");
+  } else if (lastDot !== -1 && s.match(/\./g).length > 1) {
+    s = s.replace(/\./g, "");
+  }
+  return parseFloat(s);
+}
+
 export function parseReceiptResponse(text) {
-  const cleaned = String(text).replace(/```json|```/g, "").trim();
+  const cleaned = String(text)
+    .replace(/```json|```/g, "")
+    .trim();
   const match = cleaned.match(/\{[\s\S]*\}/);
   const jsonStr = match ? match[0] : cleaned;
 
@@ -175,20 +230,7 @@ export function parseReceiptResponse(text) {
     throw new OpenRouterError("Impossibile interpretare la risposta JSON del modello");
   }
 
-  const importoNum =
-    typeof parsed.importo === "number"
-      ? parsed.importo
-      : parseFloat(String(parsed.importo ?? "").replace(",", ".").replace(/[^0-9.-]/g, ""));
-
-  const docsRaw = parsed.documenti || parsed.documents || null;
-  const detectedDocs = docsRaw
-    ? {
-        scontrino: !!docsRaw.scontrino,
-        pos: !!(docsRaw.pos || docsRaw.ricevuta_pos || docsRaw.ricevutaPos),
-        fattura: !!docsRaw.fattura,
-        estratto: !!(docsRaw.estratto || docsRaw.estratto_conto || docsRaw.estrattoConto || docsRaw.statement),
-      }
-    : null;
+  const importoNum = parseImporto(parsed.importo);
 
   const oraRaw = String(parsed.ora || "").trim();
   const oraMatch = oraRaw.match(/^(\d{1,2}):(\d{2})/);
@@ -206,8 +248,10 @@ export function parseReceiptResponse(text) {
     ora,
     categoria: CATEGORY_IDS.includes(parsed.categoria) ? parsed.categoria : "altro",
     descrizione: String(parsed.descrizione || "").trim(),
-    valuta: String(parsed.valuta || "EUR").toUpperCase().slice(0, 6) || "EUR",
-    detectedDocs,
+    valuta:
+      String(parsed.valuta || "EUR")
+        .toUpperCase()
+        .slice(0, 6) || "EUR",
   };
 }
 

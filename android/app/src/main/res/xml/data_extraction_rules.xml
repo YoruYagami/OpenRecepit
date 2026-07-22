@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ (targetSdk 31+) backup/transfer rules. Mirrors backup_rules.xml:
+     keep the WebView local storage (API key, PIN hash, receipts) out of both
+     cloud backups and device-to-device transfer. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" path="app_webview" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" path="app_webview" />
+    </device-transfer>
+</data-extraction-rules>

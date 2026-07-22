@@ -1,7 +1,11 @@
-import { CATEGORIES } from '../constants.js';
-import { fmtDateRange, expenseTimeMinutes, fmtMoney } from './formatters.js';
+import { CATEGORIES } from "../constants.js";
+import { fmtDateRange, expenseTimeMinutes } from "./formatters.js";
+import { totalsByCurrency, fmtCurrencyTotals } from "./expenseLogic.js";
 
-export function downloadFile(filename, mime, content) {
+// Trigger a file download in the browser. Returns a result object whose `canceled`
+// flag is always false on the web download path; the shape is kept so callers can
+// uniformly suppress a false "exported" success message.
+export async function downloadFile(filename, mime, content) {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -11,6 +15,7 @@ export function downloadFile(filename, mime, content) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return { method: "download", canceled: false };
 }
 
 export function csvEscape(s) {
@@ -39,25 +44,30 @@ export function tripToCSV(trip) {
 }
 
 export function tripToSummary(trip) {
-  const totals = {};
-  let grand = 0;
+  // Totals are kept per currency: summing EUR and USD as raw numbers would
+  // produce a meaningless figure on mixed-currency trips.
+  const byCat = {};
   trip.expenses.forEach((e) => {
-    totals[e.categoria] = (totals[e.categoria] || 0) + e.importo;
-    grand += e.importo;
+    (byCat[e.categoria] ||= []).push(e);
   });
   const lines = [];
   lines.push(`Riepilogo Trasferta — ${trip.name}`);
   if (trip.city) lines.push(`Città: ${trip.city}`);
-  if (trip.startDate || trip.endDate) lines.push(`Periodo: ${fmtDateRange(trip.startDate, trip.endDate)}`);
+  if (trip.startDate || trip.endDate)
+    lines.push(`Periodo: ${fmtDateRange(trip.startDate, trip.endDate)}`);
   lines.push(`Numero scontrini: ${trip.expenses.length}`);
-  lines.push(`Totale complessivo: ${fmtMoney(grand)}`);
+  lines.push(`Totale complessivo: ${fmtCurrencyTotals(totalsByCurrency(trip.expenses))}`);
   lines.push("");
   lines.push("Per categoria:");
-  Object.entries(totals)
-    .sort((a, b) => b[1] - a[1])
-    .forEach(([cat, amt]) => {
+  Object.entries(byCat)
+    .map(([cat, items]) => [cat, totalsByCurrency(items)])
+    .sort((a, b) => {
+      const sum = (m) => Object.values(m).reduce((s, v) => s + v, 0);
+      return sum(b[1]) - sum(a[1]);
+    })
+    .forEach(([cat, totals]) => {
       const c = CATEGORIES[cat] || CATEGORIES.altro;
-      lines.push(`  ${c.icon}  ${c.label}: ${fmtMoney(amt)}`);
+      lines.push(`  ${c.icon}  ${c.label}: ${fmtCurrencyTotals(totals)}`);
     });
   return lines.join("\n");
 }

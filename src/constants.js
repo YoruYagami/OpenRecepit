@@ -1,6 +1,14 @@
+// Keep in sync with package.json "version" (shown in Settings).
+export const APP_VERSION = "2.0.0";
+
 export const STORAGE_TRIPS = "receipt-tracker-trips";
 export const STORAGE_SETTINGS = "receipt-tracker-settings";
 export const STORAGE_MODELS = "receipt-tracker-models";
+// Sibling IndexedDB keys: the schema version the persisted trips were written
+// with (drives forward migration) and a one-slot rescue snapshot taken before a
+// destructive backup restore.
+export const STORAGE_DATA_VERSION = "receipt-tracker-data-version";
+export const STORAGE_TRIPS_RESCUE = "receipt-tracker-trips-rescue";
 
 export const MODELS = [
   { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" },
@@ -13,27 +21,19 @@ export const MODELS = [
 ];
 
 export const CATEGORIES = {
-  colazione:  { label: "Colazione",  icon: "☕",  color: "#D4915E" },
-  pranzo:     { label: "Pranzo",     icon: "🍝", color: "#2A9D8F" },
-  cena:       { label: "Cena",       icon: "🍷", color: "#9B2226" },
-  taxi:       { label: "Taxi",       icon: "🚕", color: "#E9C46A" },
-  metro:      { label: "Metro/Bus",  icon: "🚇", color: "#264653" },
-  treno:      { label: "Treno",      icon: "🚆", color: "#6C5B7B" },
-  aereo:      { label: "Aereo",      icon: "✈️", color: "#355C7D" },
-  hotel:      { label: "Hotel",      icon: "🏨", color: "#C06C84" },
+  colazione: { label: "Colazione", icon: "☕", color: "#D4915E" },
+  pranzo: { label: "Pranzo", icon: "🍝", color: "#2A9D8F" },
+  cena: { label: "Cena", icon: "🍷", color: "#9B2226" },
+  taxi: { label: "Taxi", icon: "🚕", color: "#E9C46A" },
+  metro: { label: "Metro/Bus", icon: "🚇", color: "#264653" },
+  treno: { label: "Treno", icon: "🚆", color: "#6C5B7B" },
+  aereo: { label: "Aereo", icon: "✈️", color: "#355C7D" },
+  hotel: { label: "Hotel", icon: "🏨", color: "#C06C84" },
   parcheggio: { label: "Parcheggio", icon: "🅿️", color: "#588157" },
   carburante: { label: "Carburante", icon: "⛽", color: "#E76F51" },
-  altro:      { label: "Altro",      icon: "📎", color: "#8B8687" },
+  altro: { label: "Altro", icon: "📎", color: "#8B8687" },
 };
 export const CATEGORY_IDS = Object.keys(CATEGORIES);
-
-export const DOC_TYPES = [
-  { id: "scontrino", label: "Scontrino", icon: "🧾" },
-  { id: "pos",       label: "Ricevuta POS", icon: "💳" },
-  { id: "fattura",   label: "Fattura", icon: "📄" },
-  { id: "estratto",  label: "Estratto conto", icon: "🏦" },
-];
-export const DOC_TYPE_IDS = DOC_TYPES.map((d) => d.id);
 
 export const DEFAULT_LIMITS = {
   colazione: 15,
@@ -60,7 +60,7 @@ export const DEFAULT_SETTINGS = {
   biometricEnabled: false,
   biometricCredId: null,
   expenseLimits: { ...DEFAULT_LIMITS },
-  requiredDocs: { alternatives: [] },
+  onboardingDone: false,
 };
 
 export const RECEIPT_PROMPT = `Analizza questo scontrino/ricevuta e rispondi ESCLUSIVAMENTE con un JSON valido. Nessun testo prima o dopo, nessun backtick markdown, SOLO il JSON.
@@ -73,13 +73,7 @@ Struttura richiesta:
   "ora": "HH:MM",
   "categoria": "una tra: colazione|pranzo|cena|taxi|metro|treno|aereo|hotel|parcheggio|carburante|altro",
   "descrizione": "breve descrizione della spesa in 5-10 parole",
-  "valuta": "EUR",
-  "documenti": {
-    "scontrino": true,
-    "pos": false,
-    "fattura": false,
-    "estratto": false
-  }
+  "valuta": "EUR"
 }
 
 Regole di classificazione categoria:
@@ -96,16 +90,8 @@ Regole di classificazione categoria:
 - benzina, diesel, GPL, metano, ricarica elettrica, colonnina → "carburante"
 - tutto ciò che non rientra nelle categorie sopra → "altro"
 
-Riconoscimento tipo documento (campo "documenti"). Imposta a TRUE ogni tipo presente nell'immagine. Più tipi possono essere TRUE contemporaneamente se l'immagine ne contiene più di uno (es. fattura con ricevuta POS allegata, oppure estratto conto con scontrino accanto).
-- "scontrino": ricevuta/scontrino fiscale emesso da registratore di cassa. Indizi: dicitura "SCONTRINO FISCALE" / "DOCUMENTO COMMERCIALE" / "RT" / "RCH", numero progressivo, partita IVA SOLO dell'esercente (non del cliente), totale e data/ora emissione, talvolta righe articoli con IVA. NON ha dati del cliente.
-- "pos": ricevuta di pagamento elettronico (terminale POS/carta). Indizi: "POS", "CONTACTLESS", "CARTA DI CREDITO/BANCOMAT/DEBITO", "APPROVATO" / "AUTORIZZATO" / "AUTH", "TRANSAZIONE", "ID TERMINALE" / "TID", "STAN", numero ATM/AID, ultime 4 cifre carta tipo ****1234, "COPIA ESERCENTE" / "COPIA CLIENTE", riga firma. È tipicamente un foglietto piccolo e secondario.
-- "fattura": fattura/invoice formale. Indizi: dicitura "FATTURA" o "INVOICE" o "FATTURA ELETTRONICA", numero fattura, IVA E codice fiscale del CLIENTE / destinatario stampati, eventuale IBAN, termini/scadenza di pagamento, indirizzo cliente. Documento più strutturato di uno scontrino.
-- "estratto": estratto conto bancario o di carta di credito. Indizi: lista MULTI-RIGA di transazioni con date, descrizioni e importi (tabellare); intestazioni "ESTRATTO CONTO" / "MOVIMENTI" / "STATEMENT" / "TRANSACTIONS"; numero conto/IBAN parziale; logo/nome banca o circuito (Visa, Mastercard, Amex). NON è una singola transazione ma un riepilogo di più operazioni.
-
 IMPORTANTE:
 - "importo" DEVE essere un numero (float), MAI una stringa. Esempio: 12.50 non "12.50€"
 - "data" in formato ISO YYYY-MM-DD. Se non leggibile, usa la data di oggi.
 - "ora" in formato HH:MM 24h (es. "13:45", "20:10"). Se sullo scontrino non c'è un orario leggibile, ometti il campo o imposta null — non inventarlo.
-- "documenti" deve sempre essere presente con tutti e quattro i campi booleani.
-- Se l'immagine non sembra nessuno dei tipi sopra, imposta tutti e quattro a false.
 - Se un campo non è determinabile, fai la migliore stima possibile.`;

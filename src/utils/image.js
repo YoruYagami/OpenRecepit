@@ -1,4 +1,5 @@
-import { b64urlEncode } from './security.js';
+import { b64urlEncode } from "./security.js";
+import { readFile } from "./file.js";
 
 function encodeCanvas(source, maxDim, quality) {
   const srcW = source.width;
@@ -18,12 +19,7 @@ function encodeCanvas(source, maxDim, quality) {
 }
 
 async function loadImageElement(file) {
-  const dataUrl = await new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
+  const dataUrl = await readFile(file, { as: "dataURL" });
   return new Promise((resolve, reject) => {
     const i = new Image();
     i.onload = () => resolve(i);
