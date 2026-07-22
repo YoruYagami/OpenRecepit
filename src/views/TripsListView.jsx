@@ -56,10 +56,21 @@ export function TripsListView({ trips, onOpen, onNew, onDelete }) {
         {sorted.map((t) => {
           const total = fmtCurrencyTotals(totalsByCurrency(t.expenses));
           return (
-            <button
+            // Not a <button>: it contains the delete button, and nested buttons
+            // are invalid HTML — on Android touch the inner tap can activate
+            // the card instead of the delete.
+            <div
               key={t.id}
+              role="button"
+              tabIndex={0}
               onClick={() => onOpen(t.id)}
-              className="text-left bg-surface rounded-2xl shadow-soft p-4 active:scale-[0.99] transition hover:bg-surface-2/40"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onOpen(t.id);
+                }
+              }}
+              className="text-left bg-surface rounded-2xl shadow-soft p-4 active:scale-[0.99] transition hover:bg-surface-2/40 cursor-pointer"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -102,7 +113,7 @@ export function TripsListView({ trips, onOpen, onNew, onDelete }) {
                 </span>
                 <span className="font-mono font-bold text-ink text-lg">{total}</span>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>

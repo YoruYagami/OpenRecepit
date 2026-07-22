@@ -24,6 +24,23 @@ export function ImageViewerBody({ url, fullRef, caption, filename, onClose }) {
     };
   }, [url, fullRef]);
 
+  const downloadImage = async () => {
+    if (!displayUrl) return;
+    try {
+      const blob = await (await fetch(displayUrl)).blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(filename || caption || "scontrino").replace(/[^\w.-]+/g, "_")}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      /* download best-effort */
+    }
+  };
+
   return (
     <>
       <div
@@ -35,9 +52,17 @@ export function ImageViewerBody({ url, fullRef, caption, filename, onClose }) {
           {filename && <p className="text-[11px] opacity-60 truncate">{filename}</p>}
         </div>
         <button
+          onClick={downloadImage}
+          aria-label="Scarica immagine"
+          title="Scarica"
+          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 active:scale-95 transition ml-2 shrink-0"
+        >
+          <Icon name="download" className="w-5 h-5" />
+        </button>
+        <button
           onClick={onClose}
           aria-label="Chiudi"
-          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 active:scale-95 transition ml-2 shrink-0"
+          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 active:scale-95 transition ml-1 shrink-0"
         >
           <Icon name="x" className="w-5 h-5" />
         </button>

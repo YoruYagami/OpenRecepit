@@ -192,9 +192,12 @@ function AppInner() {
   };
 
   return (
-    <div className="min-h-full bg-[#1a1a2e] flex flex-col items-center">
-      <div className="relative w-full max-w-5xl mx-auto sm:my-6 sm:rounded-[36px] bg-paper shadow-soft-lg flex flex-col flex-1 sm:min-h-[calc(100vh-3rem)] overflow-hidden">
-        <div className="flex-1 overflow-y-auto pt-4 pb-20 sm:pb-0 relative">
+    // Mobile: lock the frame to the viewport (h-full + min-h-0 chain) so the
+    // inner div is the ONLY scroller and the absolute tab bar stays pinned.
+    // Desktop (sm:) keeps the floating card that can grow with the document.
+    <div className="h-full sm:h-auto sm:min-h-full bg-[#1a1a2e] flex flex-col items-center">
+      <div className="relative w-full max-w-5xl mx-auto sm:my-6 sm:rounded-[36px] bg-paper shadow-soft-lg flex flex-col flex-1 min-h-0 sm:min-h-[calc(100vh-3rem)] overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto pt-4 pb-20 sm:pb-0 relative">
           <div className="max-w-3xl mx-auto h-full px-4 sm:px-8">{renderContent()}</div>
         </div>
 
