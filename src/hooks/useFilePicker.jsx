@@ -39,6 +39,27 @@ export function useFilePicker() {
         return []; // annullato dall'utente o permesso negato
       }
     }
+    // Native multi-select photo picker: the WebView file chooser closes on the
+    // first tap on many Android galleries, so bulk selection needs the plugin.
+    if (source === "gallery" && Capacitor.isNativePlatform()) {
+      try {
+        const res = await Camera.pickImages({ quality: 90, limit: 30 });
+        const files = [];
+        for (const p of res?.photos || []) {
+          if (!p?.webPath) continue;
+          const blob = await (await fetch(p.webPath)).blob();
+          files.push(
+            new File([blob], `scontrino-${Date.now()}-${files.length}.jpg`, {
+              type: blob.type || "image/jpeg",
+            })
+          );
+        }
+        return files;
+      } catch {
+        return [];
+      }
+    }
+    // "files" (documents: images + PDF) and every web path use the inputs.
     return new Promise((resolve) => {
       settle([]); // a new pick supersedes any stale pending one
       pendingRef.current = resolve;

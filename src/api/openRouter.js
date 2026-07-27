@@ -238,6 +238,24 @@ export function parseReceiptResponse(text) {
 
   const importoNum = parseImporto(parsed.importo);
 
+  // VAT breakdown (Italian receipts/invoices): keep only plausible rows the
+  // model actually read — never a hallucinated single guess.
+  const ivaRaw = Array.isArray(parsed.iva) ? parsed.iva : [];
+  const iva = ivaRaw
+    .map((r) => ({
+      aliquota: Number(r?.aliquota),
+      imponibile: Math.round((parseImporto(r?.imponibile) || 0) * 100) / 100,
+      imposta: Math.round((parseImporto(r?.imposta) || 0) * 100) / 100,
+    }))
+    .filter(
+      (r) =>
+        isFinite(r.aliquota) &&
+        r.aliquota > 0 &&
+        r.aliquota <= 30 &&
+        (r.imposta > 0 || r.imponibile > 0)
+    )
+    .slice(0, 4);
+
   const oraRaw = String(parsed.ora || "").trim();
   const oraMatch = oraRaw.match(/^(\d{1,2}):(\d{2})/);
   let ora = null;
@@ -258,6 +276,7 @@ export function parseReceiptResponse(text) {
       String(parsed.valuta || "EUR")
         .toUpperCase()
         .slice(0, 6) || "EUR",
+    ...(iva.length > 0 ? { iva } : {}),
   };
 }
 

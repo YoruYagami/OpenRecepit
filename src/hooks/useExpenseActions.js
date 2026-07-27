@@ -93,7 +93,9 @@ export function useExpenseActions({ pickFiles }) {
 
   const addAttachment = useCallback(
     async (tripId, expenseId, mode = "gallery") => {
-      const files = await pickFiles({ source: mode });
+      // Attachments accept PDFs too, so the gallery button opens the document
+      // picker (the native photo picker is images-only).
+      const files = await pickFiles({ source: mode === "gallery" ? "files" : mode });
       if (files.length === 0) return;
       const working = files.filter((f) => f.size <= MAX_IMAGE_BYTES);
       if (working.length < files.length) toast("Immagini troppo grandi ignorate", "error");

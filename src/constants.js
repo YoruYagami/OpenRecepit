@@ -73,7 +73,10 @@ Struttura richiesta:
   "ora": "HH:MM",
   "categoria": "una tra: colazione|pranzo|cena|taxi|metro|treno|aereo|hotel|parcheggio|carburante|altro",
   "descrizione": "breve descrizione della spesa in 5-10 parole",
-  "valuta": "EUR"
+  "valuta": "EUR",
+  "iva": [
+    { "aliquota": 22, "imponibile": 10.25, "imposta": 2.25 }
+  ]
 }
 
 Regole di classificazione categoria:
@@ -89,6 +92,8 @@ Regole di classificazione categoria:
 - parcheggio, sosta, strisce blu, garage → "parcheggio"
 - benzina, diesel, GPL, metano, ricarica elettrica, colonnina → "carburante"
 - tutto ciò che non rientra nelle categorie sopra → "altro"
+
+IVA (campo "iva"): se il documento riporta il dettaglio IVA (aliquote %, imponibile, imposta — comune su scontrini e fatture italiani), estrai una voce per ogni aliquota presente. "aliquota" è la percentuale (es. 4, 5, 10, 22), "imponibile" e "imposta" sono numeri float. Se il dettaglio IVA NON è visibile sul documento, ometti il campo o usa un array vuoto — NON inventare o calcolare aliquote non stampate.
 
 IMPORTANTE:
 - "importo" DEVE essere un numero (float), MAI una stringa. Esempio: 12.50 non "12.50€"

@@ -1,5 +1,5 @@
 import { CATEGORIES } from "../constants.js";
-import { fmtDateRange, expenseTimeMinutes } from "./formatters.js";
+import { fmtDateRange, expenseTimeMinutes, fmtMoney } from "./formatters.js";
 import { totalsByCurrency, fmtCurrencyTotals } from "./expenseLogic.js";
 
 import { saveOrShareFile } from "./download.js";
@@ -17,22 +17,39 @@ export function csvEscape(s) {
   return v;
 }
 
+const fmtDec = (n) => (typeof n === "number" ? n.toFixed(2).replace(".", ",") : "");
+
 export function tripToCSV(trip) {
-  const header = ["Data", "Ora", "Esercente", "Categoria", "Descrizione", "Importo", "Valuta"];
+  const header = [
+    "Data",
+    "Ora",
+    "Esercente",
+    "Categoria",
+    "Descrizione",
+    "Importo",
+    "Valuta",
+    "Aliquote IVA",
+    "Imposta IVA",
+  ];
   const rows = [...trip.expenses]
     .sort((a, b) => {
       if (a.data !== b.data) return a.data < b.data ? -1 : 1;
       return expenseTimeMinutes(a) - expenseTimeMinutes(b);
     })
-    .map((e) => [
-      e.data,
-      e.ora || "",
-      e.esercente,
-      CATEGORIES[e.categoria]?.label ?? e.categoria,
-      e.descrizione,
-      e.importo.toFixed(2).replace(".", ","),
-      e.valuta,
-    ]);
+    .map((e) => {
+      const iva = Array.isArray(e.iva) ? e.iva : [];
+      return [
+        e.data,
+        e.ora || "",
+        e.esercente,
+        CATEGORIES[e.categoria]?.label ?? e.categoria,
+        e.descrizione,
+        fmtDec(e.importo),
+        e.valuta,
+        iva.map((r) => `${r.aliquota}%`).join(" + "),
+        iva.length > 0 ? fmtDec(iva.reduce((s, r) => s + (r.imposta || 0), 0)) : "",
+      ];
+    });
   return [header, ...rows].map((r) => r.map(csvEscape).join(";")).join("\n");
 }
 
@@ -62,5 +79,30 @@ export function tripToSummary(trip) {
       const c = CATEGORIES[cat] || CATEGORIES.altro;
       lines.push(`  ${c.icon}  ${c.label}: ${fmtCurrencyTotals(totals)}`);
     });
+
+  // VAT recap per rate (only when at least one expense carries a breakdown).
+  const vatByRate = {};
+  trip.expenses.forEach((e) => {
+    (Array.isArray(e.iva) ? e.iva : []).forEach((r) => {
+      const k = r.aliquota;
+      vatByRate[k] = vatByRate[k] || { imponibile: 0, imposta: 0 };
+      vatByRate[k].imponibile += r.imponibile || 0;
+      vatByRate[k].imposta += r.imposta || 0;
+    });
+  });
+  const rates = Object.keys(vatByRate).sort((a, b) => a - b);
+  if (rates.length > 0) {
+    lines.push("");
+    lines.push("Riepilogo IVA:");
+    let totIva = 0;
+    for (const rate of rates) {
+      const v = vatByRate[rate];
+      totIva += v.imposta;
+      lines.push(
+        `  IVA ${rate}%: imposta ${fmtMoney(v.imposta)} (imponibile ${fmtMoney(v.imponibile)})`
+      );
+    }
+    lines.push(`  Totale IVA: ${fmtMoney(totIva)}`);
+  }
   return lines.join("\n");
 }

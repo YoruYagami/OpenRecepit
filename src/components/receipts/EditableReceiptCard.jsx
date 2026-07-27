@@ -158,28 +158,67 @@ export function EditableReceiptCard({
     );
   }
 
+  // Expanded/editing layout: single column — image strip on top, then full-width
+  // labeled fields (the old two-column squeeze clipped labels and values).
   return (
     <div className="bg-surface rounded-2xl shadow-soft overflow-hidden">
-      <div className="flex gap-3 p-3">
-        <div className="shrink-0 flex gap-2 overflow-x-auto pb-1 max-w-[50%] scrollbar-hide">
+      <div className="p-3 flex flex-col gap-3">
+        {status === "processing" && (
+          <div className="flex items-center gap-2 text-sm text-ink/70">
+            <Spinner className="w-4 h-4" />
+            <span>Analisi in corso…</span>
+          </div>
+        )}
+        {status === "pending" && <div className="text-sm text-ink/50">In coda</div>}
+        {status === "error" && (
+          <div className="text-sm text-danger">
+            <div className="font-semibold flex items-center gap-1.5">
+              <Icon name="warning" className="w-4 h-4" /> Errore
+            </div>
+            <div className="text-xs mt-0.5 break-words">{item.error}</div>
+          </div>
+        )}
+        {(status === "done" || status === "confirmed") && (
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <CategoryBadge id={data.categoria} size="sm" />
+            <div className="flex items-center gap-1.5 shrink-0">
+              {onReanalyze && (item.full || item.fullRef) && (
+                <button
+                  type="button"
+                  onClick={() => onReanalyze(item.id)}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-ink/60 hover:text-ink px-2 py-1 rounded-md hover:bg-surface-2 active:scale-95"
+                >
+                  <Icon name="refresh" className="w-3 h-3" />
+                  <span>Rianalizza</span>
+                </button>
+              )}
+              <span className="text-[11px] font-semibold text-ok inline-flex items-center gap-1">
+                <Icon name="check" className="w-3.5 h-3.5" />
+                {status === "confirmed" ? "Confermato" : "Pronto"}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-1 px-1">
           <button
             type="button"
             onClick={(ev) => openViewer(ev)}
             disabled={!hasPreview || !onViewImage}
-            className="w-20 h-24 rounded-xl bg-surface-2 overflow-hidden grid place-items-center active:scale-95 transition relative group shrink-0"
+            className="w-16 h-20 rounded-xl bg-surface-2 overflow-hidden grid place-items-center active:scale-95 transition relative shrink-0"
           >
             {item.thumb ? (
               <img src={item.thumb} alt="" className="w-full h-full object-cover" />
             ) : item.isPdf || item.data?.pdf ? (
               <span className="flex flex-col items-center gap-0.5 text-ink/50">
-                <Icon name="fileText" className="w-7 h-7" />
+                <Icon name="fileText" className="w-6 h-6" />
                 <span className="text-[8px] font-bold uppercase">PDF</span>
               </span>
             ) : (
-              <Icon name="receipt" className="w-7 h-7 text-ink/40" />
+              <Icon name="receipt" className="w-6 h-6 text-ink/40" />
             )}
             {hasPreview && onViewImage && (
-              <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] grid place-items-center backdrop-blur-sm">
+              <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white grid place-items-center backdrop-blur-sm">
                 <Icon name="zoomIn" className="w-3 h-3" />
               </span>
             )}
@@ -197,171 +236,140 @@ export function EditableReceiptCard({
                   fileName: img.fileName,
                 })
               }
-              className="w-20 h-24 rounded-xl bg-surface-2 overflow-hidden grid place-items-center active:scale-95 transition relative shrink-0"
+              className="w-16 h-20 rounded-xl bg-surface-2 overflow-hidden grid place-items-center active:scale-95 transition relative shrink-0"
             >
               {img.pdf ? (
                 <span className="flex flex-col items-center gap-1 px-1 text-ink/60">
-                  <Icon name="fileText" className="w-6 h-6" />
-                  <span className="text-[9px] font-semibold truncate max-w-[64px]">
+                  <Icon name="fileText" className="w-5 h-5" />
+                  <span className="text-[8px] font-semibold truncate max-w-[52px]">
                     {img.fileName || "PDF"}
                   </span>
                 </span>
               ) : (
                 <img src={img.thumb} alt="" className="w-full h-full object-cover" />
               )}
-              <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] grid place-items-center backdrop-blur-sm">
+              <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white grid place-items-center backdrop-blur-sm">
                 <Icon name="zoomIn" className="w-3 h-3" />
               </span>
             </button>
           ))}
 
           {onAddAttachment && (
-            <div className="w-20 h-24 flex flex-col gap-1 shrink-0">
+            <>
               <button
                 type="button"
                 onClick={() => onAddAttachment("camera")}
-                className="flex-1 rounded-xl bg-surface-2 flex items-center justify-center text-ink/50 hover:bg-line transition active:scale-95"
+                className="w-14 h-20 rounded-xl border border-dashed border-line-strong flex flex-col items-center justify-center gap-1 text-ink/50 hover:bg-surface-2 transition active:scale-95 shrink-0"
                 title="Scatta foto allegato"
                 aria-label="Scatta foto allegato"
               >
                 <Icon name="camera" className="w-5 h-5" />
+                <span className="text-[9px] font-semibold">Scatta</span>
               </button>
               <button
                 type="button"
                 onClick={() => onAddAttachment("gallery")}
-                className="flex-1 rounded-xl bg-surface-2 flex items-center justify-center text-ink/50 hover:bg-line transition active:scale-95"
-                title="Carica foto allegato"
-                aria-label="Carica foto allegato"
+                className="w-14 h-20 rounded-xl border border-dashed border-line-strong flex flex-col items-center justify-center gap-1 text-ink/50 hover:bg-surface-2 transition active:scale-95 shrink-0"
+                title="Allega file (foto o PDF)"
+                aria-label="Allega file (foto o PDF)"
               >
-                <Icon name="image" className="w-5 h-5" />
+                <Icon name="plus" className="w-5 h-5" />
+                <span className="text-[9px] font-semibold">Allega</span>
               </button>
-            </div>
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          {status === "processing" && (
-            <div className="flex items-center gap-2 text-sm text-ink/70">
-              <Spinner className="w-4 h-4" />
-              <span>Analisi in corso…</span>
-            </div>
-          )}
-          {status === "pending" && <div className="text-sm text-ink/50">In coda</div>}
-          {status === "error" && (
-            <div className="text-sm text-danger">
-              <div className="font-semibold flex items-center gap-1.5">
-                <Icon name="warning" className="w-4 h-4" /> Errore
-              </div>
-              <div className="text-xs mt-0.5 break-words">{item.error}</div>
-            </div>
-          )}
-          {(status === "done" || status === "confirmed") && (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <CategoryBadge id={data.categoria} size="sm" />
-                <div className="flex items-center gap-1.5">
-                  {onReanalyze && (item.full || item.fullRef) && (
-                    <button
-                      type="button"
-                      onClick={() => onReanalyze(item.id)}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-ink/60 hover:text-ink px-2 py-1 rounded-md hover:bg-surface-2 active:scale-95"
-                    >
-                      <Icon name="refresh" className="w-3 h-3" />
-                      <span>Rianalizza</span>
-                    </button>
-                  )}
-                  <span className="text-[11px] text-ink/50">
-                    {status === "confirmed" ? "✅ Confermato" : "✅ Pronto"}
-                  </span>
-                </div>
-              </div>
-              <input
-                value={data.esercente ?? ""}
-                onChange={(e) => update({ esercente: e.target.value })}
-                className="mt-1.5 w-full font-bold text-ink bg-transparent focus:outline-none border-b border-transparent focus:border-line-strong py-0.5"
-                placeholder="Esercente"
-              />
-              <input
-                value={data.descrizione ?? ""}
-                onChange={(e) => update({ descrizione: e.target.value })}
-                className="mt-0.5 w-full text-sm text-ink/70 bg-transparent focus:outline-none border-b border-transparent focus:border-line-strong py-0.5"
-                placeholder="Descrizione"
-              />
             </>
           )}
         </div>
-      </div>
 
-      {(status === "done" || status === "confirmed") && (
-        <div className="px-3 pb-3 grid grid-cols-2 gap-2">
-          <Field label="Data">
-            <TextInput
-              type="date"
-              value={data.data || ""}
-              onChange={(e) => update({ data: e.target.value })}
-            />
-          </Field>
-          <Field label="Ora">
-            <TextInput
-              type="time"
-              value={data.ora || ""}
-              onChange={(e) => update({ ora: e.target.value || null })}
-            />
-          </Field>
-          <Field label="Importo">
-            <div className="relative">
+        {(status === "done" || status === "confirmed") && (
+          <div className="flex flex-col gap-3">
+            <Field label="Esercente">
               <TextInput
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                value={data.importo ?? ""}
-                onChange={(e) => update({ importo: parseFloat(e.target.value) || 0 })}
-                className="w-full font-mono pr-12"
+                value={data.esercente ?? ""}
+                onChange={(e) => update({ esercente: e.target.value })}
+                placeholder="Es. Trattoria Roma"
+                className="font-semibold"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/50 font-mono">
-                {data.valuta || "EUR"}
-              </span>
+            </Field>
+            <Field label="Descrizione">
+              <TextInput
+                value={data.descrizione ?? ""}
+                onChange={(e) => update({ descrizione: e.target.value })}
+                placeholder="Breve descrizione"
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Importo">
+                <div className="relative">
+                  <TextInput
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={data.importo ?? ""}
+                    onChange={(e) => update({ importo: parseFloat(e.target.value) || 0 })}
+                    className="w-full font-mono pr-12"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/50 font-mono">
+                    {data.valuta || "EUR"}
+                  </span>
+                </div>
+              </Field>
+              <Field label="Valuta">
+                {customCurrency ? (
+                  <div className="relative">
+                    <TextInput
+                      value={data.valuta || ""}
+                      onChange={(e) =>
+                        update({ valuta: e.target.value.toUpperCase().slice(0, 6) })
+                      }
+                      className="w-full pr-9"
+                      placeholder="Es. SEK"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Torna alle valute comuni"
+                      onClick={() => {
+                        setCustomCurrency(false);
+                        update({ valuta: "EUR" });
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full hover:bg-surface-2 grid place-items-center text-ink/50"
+                    >
+                      <Icon name="x" className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <SelectInput
+                    value={PRESET_CURRENCIES.includes(data.valuta) ? data.valuta : "EUR"}
+                    onChange={(e) => {
+                      if (e.target.value === "__other") setCustomCurrency(true);
+                      else update({ valuta: e.target.value });
+                    }}
+                  >
+                    {PRESET_CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                    <option value="__other">Altra…</option>
+                  </SelectInput>
+                )}
+              </Field>
             </div>
-          </Field>
-          <Field label="Valuta">
-            {customCurrency ? (
-              <div className="relative">
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Data">
                 <TextInput
-                  value={data.valuta || ""}
-                  onChange={(e) => update({ valuta: e.target.value.toUpperCase().slice(0, 6) })}
-                  className="w-full pr-9"
-                  placeholder="Es. SEK"
+                  type="date"
+                  value={data.data || ""}
+                  onChange={(e) => update({ data: e.target.value })}
                 />
-                <button
-                  type="button"
-                  aria-label="Torna alle valute comuni"
-                  onClick={() => {
-                    setCustomCurrency(false);
-                    update({ valuta: "EUR" });
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full hover:bg-surface-2 grid place-items-center text-ink/50"
-                >
-                  <Icon name="x" className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <SelectInput
-                value={PRESET_CURRENCIES.includes(data.valuta) ? data.valuta : "EUR"}
-                onChange={(e) => {
-                  if (e.target.value === "__other") setCustomCurrency(true);
-                  else update({ valuta: e.target.value });
-                }}
-              >
-                {PRESET_CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-                <option value="__other">Altra…</option>
-              </SelectInput>
-            )}
-          </Field>
-          <div className="col-span-2">
+              </Field>
+              <Field label="Ora">
+                <TextInput
+                  type="time"
+                  value={data.ora || ""}
+                  onChange={(e) => update({ ora: e.target.value || null })}
+                />
+              </Field>
+            </div>
             <Field label="Categoria">
               <SelectInput
                 value={data.categoria || "altro"}
@@ -374,9 +382,24 @@ export function EditableReceiptCard({
                 ))}
               </SelectInput>
             </Field>
+            {Array.isArray(data.iva) && data.iva.length > 0 && (
+              <div className="rounded-xl bg-surface-2/60 px-3 py-2 text-xs text-ink/70 flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="font-semibold uppercase tracking-wide text-[10px] text-ink/50">
+                  IVA rilevata
+                </span>
+                {data.iva.map((r, i) => (
+                  <span key={i}>
+                    {r.aliquota}%:{" "}
+                    <span className="font-mono font-bold text-ink">
+                      {fmtMoney(r.imposta, data.valuta)}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {data.duplicateOf && (status === "done" || status === "confirmed") && (
         <div className="mx-3 mb-2 rounded-xl bg-danger-soft border border-danger-line px-3 py-2 flex items-start gap-2">

@@ -99,6 +99,34 @@ describe("parseReceiptResponse", () => {
     expect(() => parseReceiptResponse("just some text with no braces")).toThrow();
   });
 
+  it("parses the VAT breakdown and drops implausible rows", () => {
+    const text = JSON.stringify({
+      esercente: "X",
+      importo: 24.4,
+      data: "2026-01-01",
+      categoria: "pranzo",
+      iva: [
+        { aliquota: 10, imponibile: 10, imposta: 1 },
+        { aliquota: 22, imponibile: "10,00", imposta: "2,20" },
+        { aliquota: 99, imponibile: 1, imposta: 1 }, // implausible rate
+        { aliquota: 0, imponibile: 5, imposta: 0 }, // zero rate dropped
+      ],
+    });
+    const out = parseReceiptResponse(text);
+    expect(out.iva).toHaveLength(2);
+    expect(out.iva[1]).toEqual({ aliquota: 22, imponibile: 10, imposta: 2.2 });
+  });
+
+  it("omits iva when the model provides none", () => {
+    const text = JSON.stringify({
+      esercente: "X",
+      importo: 1,
+      data: "2026-01-01",
+      categoria: "altro",
+    });
+    expect(parseReceiptResponse(text).iva).toBeUndefined();
+  });
+
   it("parses amounts with thousands separators", () => {
     expect(parseImporto("1.234,56")).toBe(1234.56);
     expect(parseImporto("1,234.56")).toBe(1234.56);
