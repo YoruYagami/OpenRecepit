@@ -10,11 +10,12 @@ import { expenseTimeMinutes } from "./formatters.js";
  * filename, attachments (POS slip / bank statement) sit next to their receipt.
  *
  *   Cliente_Milano/riepilogo.csv
- *   Cliente_Milano/2026-07-21/01_pranzo_23.50EUR_Trattoria-Roma.jpg
- *   Cliente_Milano/2026-07-21/01_pranzo_23.50EUR_Trattoria-Roma_allegato1.pdf
+ *   Cliente_Milano/2026-07-21/01_pranzo_23-50EUR_Trattoria-Roma.jpg
+ *   Cliente_Milano/2026-07-21/01_pranzo_23-50EUR_Trattoria-Roma_allegato1.pdf
  *
  * Filenames are filesystem-safe: no commas, no spaces, no accents — amounts
- * use the dot as decimal separator.
+ * use the dash as decimal separator (23-50EUR) so the extension's dot is
+ * the only dot in the name.
  */
 
 /** Alnum/dash-only fragment (drops commas, spaces, accents). */
@@ -30,10 +31,14 @@ export function sanitizeName(s, max = 40) {
   );
 }
 
-/** Base filename for an expense: "01_pranzo_23.50EUR_Trattoria-Roma". */
+/** Base filename for an expense: "01_pranzo_23-50EUR_Trattoria-Roma". */
 export function packFileBase(expense, index) {
   const idx = String(index).padStart(2, "0");
-  const amount = (typeof expense.importo === "number" ? expense.importo : 0).toFixed(2);
+  // Dash as decimal separator: some picky upload portals reject filenames
+  // with more than one dot, and the only dot we want is the extension's.
+  const amount = (typeof expense.importo === "number" ? expense.importo : 0)
+    .toFixed(2)
+    .replace(".", "-");
   const cur = sanitizeName(expense.valuta || "EUR", 6);
   return `${idx}_${sanitizeName(expense.categoria || "altro", 15)}_${amount}${cur}_${sanitizeName(expense.esercente)}`;
 }

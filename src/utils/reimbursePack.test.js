@@ -19,12 +19,12 @@ describe("sanitizeName", () => {
 });
 
 describe("packFileBase", () => {
-  it("builds index_categoria_importoVALUTA_esercente with dot decimals", () => {
+  it("builds index_categoria_importoVALUTA_esercente with dash decimals", () => {
     const e = { importo: 23.5, valuta: "EUR", categoria: "pranzo", esercente: "Trattoria Roma" };
-    expect(packFileBase(e, 1)).toBe("01_pranzo_23.50EUR_Trattoria-Roma");
+    expect(packFileBase(e, 1)).toBe("01_pranzo_23-50EUR_Trattoria-Roma");
   });
 
-  it("never contains commas or spaces", () => {
+  it("never contains commas, spaces or dots", () => {
     const e = {
       importo: 1234.56,
       valuta: "USD",
@@ -32,11 +32,11 @@ describe("packFileBase", () => {
       esercente: "Hotel Bella Vista, München",
     };
     const name = packFileBase(e, 12);
-    expect(name).not.toMatch(/[,\s]/);
-    expect(name).toContain("1234.56USD");
+    expect(name).not.toMatch(/[,\s.]/);
+    expect(name).toContain("1234-56USD");
   });
 
   it("handles missing fields", () => {
-    expect(packFileBase({}, 3)).toBe("03_altro_0.00EUR_spesa");
+    expect(packFileBase({}, 3)).toBe("03_altro_0-00EUR_spesa");
   });
 });
