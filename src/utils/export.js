@@ -2,20 +2,13 @@ import { CATEGORIES } from "../constants.js";
 import { fmtDateRange, expenseTimeMinutes } from "./formatters.js";
 import { totalsByCurrency, fmtCurrencyTotals } from "./expenseLogic.js";
 
-// Trigger a file download in the browser. Returns a result object whose `canceled`
-// flag is always false on the web download path; the shape is kept so callers can
-// uniformly suppress a false "exported" success message.
+import { saveOrShareFile } from "./download.js";
+
+// Save a text file: blob download on the web, native share sheet in the APK
+// (the WebView ignores anchor downloads). `canceled` is true when the user
+// dismisses the share sheet, so callers skip the success toast.
 export async function downloadFile(filename, mime, content) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  return { method: "download", canceled: false };
+  return saveOrShareFile({ fileName: filename, mimeType: mime, text: content });
 }
 
 export function csvEscape(s) {

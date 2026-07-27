@@ -206,7 +206,20 @@ function AppInner() {
         <div className="absolute bottom-0 w-full sm:relative sm:border-t-0 border-t border-line bg-paper/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] sm:pb-0">
           <BottomTabBar
             active={openTrip ? "trips" : nav.tab}
-            onChange={nav.setTab}
+            onChange={(tab) => {
+              // The camera FAB shoots straight away: current trip if one is
+              // open, otherwise the most recent one. No intermediate screen.
+              if (tab === "scan" && scanEnabled) {
+                const target =
+                  openTrip || [...trips].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+                if (target) {
+                  if (!openTrip) nav.openTrip(target.id);
+                  scanQueue.startScan(target.id, "camera");
+                  return;
+                }
+              }
+              nav.setTab(tab);
+            }}
             scanEnabled={scanEnabled}
           />
         </div>
