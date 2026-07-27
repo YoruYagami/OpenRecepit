@@ -74,6 +74,8 @@ export function OverlayHost({ scanQueue, trips, settings, onViewImage }) {
                       onDiscardItem={scanQueue.handlers.discardItem}
                       onRetryItem={scanQueue.handlers.retryItem}
                       onSaveRawItem={scanQueue.handlers.saveRawItem}
+                      onSplitItem={scanQueue.handlers.splitItem}
+                      onAttachItem={scanQueue.handlers.attachItem}
                       onReanalyzeItem={scanQueue.handlers.reanalyzeItem}
                       onConfirmAll={scanQueue.handlers.confirmAll}
                       onDiscardAll={scanQueue.handlers.discardAll}

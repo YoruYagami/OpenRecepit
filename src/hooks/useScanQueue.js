@@ -4,9 +4,14 @@ import { useNav } from "../navigation/NavProvider.jsx";
 import { analyzeReceipt } from "../api/openRouter.js";
 import { sha256Text, fileToResizedDataURL } from "../utils/image.js";
 import { readFile } from "../utils/file.js";
-import { buildExpenseFromQueueItem } from "../utils/expenseImages.js";
-import { emptyExpenseData, findContentDuplicate } from "../utils/expenseLogic.js";
-import { uid } from "../utils/formatters.js";
+import { buildExpenseFromQueueItem, storeFullImage } from "../utils/expenseImages.js";
+import {
+  emptyExpenseData,
+  findContentDuplicate,
+  looksLikeSameTransaction,
+  mergeQueueItems,
+} from "../utils/expenseLogic.js";
+import { uid, fmtMoney } from "../utils/formatters.js";
 
 // Bounds on a single import batch so a huge multi-select can't OOM the tab.
 const MAX_IMAGES_PER_BATCH = 30;
@@ -15,6 +20,32 @@ const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const ANALYZE_CONCURRENCY = 3;
 
 const isPdfFile = (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name || "");
+
+/**
+ * Fold a just-analyzed item into an earlier one from the same batch when they
+ * are the same transaction (receipt + POS slip + statement of one dinner), so
+ * the queue shows a single expense with the others attached. Items the user
+ * has split apart (`noMerge`) or already confirmed are left alone.
+ */
+function autoMergeQueue(queue, justDoneId) {
+  const item = queue.find((it) => it.id === justDoneId);
+  if (!item || item.status !== "done" || item.noMerge || item.data?.attachToId) return queue;
+  const partner = queue.find(
+    (it) =>
+      it.id !== item.id &&
+      it.status === "done" &&
+      !it.noMerge &&
+      !it.data?.attachToId &&
+      looksLikeSameTransaction(it.data, item.data)
+  );
+  if (!partner) return queue;
+  const merged = mergeQueueItems([partner, item]);
+  return queue.flatMap((it) => {
+    if (it.id === partner.id) return [{ ...merged, id: partner.id }];
+    if (it.id === item.id) return [];
+    return [it];
+  });
+}
 
 /*
  * The entire scan pipeline, extracted from App: file intake → resize/hash →
@@ -105,6 +136,12 @@ export function useScanQueue({ pickFiles }) {
           signal,
         });
         const targetTrip = tripsRef.current.find((t) => t.id === item.tripId);
+        // A same-transaction match among SAVED expenses (receipt already
+        // confirmed, this is its POS slip) is offered as "attach", not as a
+        // duplicate to discard.
+        const sameSaved = targetTrip
+          ? targetTrip.expenses.find((e) => looksLikeSameTransaction(parsed, e))
+          : null;
         const dup = targetTrip ? findContentDuplicate(parsed, targetTrip.expenses) : null;
         const data = {
           ...parsed,
@@ -114,8 +151,17 @@ export function useScanQueue({ pickFiles }) {
                 duplicateLabel: `${dup.esercente} · ${dup.importo} ${dup.valuta}`,
               }
             : {}),
+          ...(sameSaved
+            ? {
+                attachToId: sameSaved.id,
+                attachToLabel: `${sameSaved.esercente} · ${fmtMoney(sameSaved.importo, sameSaved.valuta)}`,
+              }
+            : {}),
         };
-        setQueue((q) => q.map((it) => (it.id === item.id ? { ...it, status: "done", data } : it)));
+        setQueue((q) => {
+          const next = q.map((it) => (it.id === item.id ? { ...it, status: "done", data } : it));
+          return autoMergeQueue(next, item.id);
+        });
       } catch (err) {
         setQueue((q) =>
           q.map((it) =>
@@ -265,6 +311,68 @@ export function useScanQueue({ pickFiles }) {
     if (files.length > 0) await processFiles(tripId, files, { append: true });
   }, [pickFiles, processFiles]);
 
+  /** Undo an automatic grouping: the attachments become separate queue items. */
+  const splitItem = useCallback((itemId) => {
+    setQueue((q) => {
+      const item = q.find((it) => it.id === itemId);
+      if (!item || !item.mergedCount) return q;
+      const attachments = item.extraImages || [];
+      const restored = attachments.map((im) => ({
+        id: uid(),
+        tripId: item.tripId,
+        fileName: im.fileName || item.fileName,
+        status: "done",
+        thumb: im.thumb,
+        full: im.full,
+        imageHash: im.imageHash,
+        isPdf: !!im.pdf,
+        noMerge: true, // don't re-merge what the user just split
+        data: { ...item.data, iva: undefined },
+      }));
+      const base = {
+        ...item,
+        extraImages: [],
+        mergedFrom: undefined,
+        mergedCount: undefined,
+        noMerge: true,
+      };
+      return q.flatMap((it) => (it.id === itemId ? [base, ...restored] : [it]));
+    });
+    toast("Documenti separati", "info");
+  }, [toast]);
+
+  /** Attach this document to an expense already saved in the trip. */
+  const attachItem = useCallback(
+    async (itemId) => {
+      const item = queueRef.current.find((it) => it.id === itemId);
+      const targetId = item?.data?.attachToId;
+      if (!item || !targetId) return;
+      const entry = {
+        thumb: item.thumb,
+        imageHash: item.imageHash,
+        ...(item.isPdf ? { pdf: true, fileName: item.fileName } : {}),
+        ...(await storeFullImage(item.full)),
+      };
+      setTrips((ts) =>
+        ts.map((t) =>
+          t.id === item.tripId
+            ? {
+                ...t,
+                expenses: t.expenses.map((e) =>
+                  e.id === targetId
+                    ? { ...e, extraImages: [...(e.extraImages || []), entry] }
+                    : e
+                ),
+              }
+            : t
+        )
+      );
+      setQueue((q) => q.map((it) => (it.id === itemId ? { ...it, status: "confirmed" } : it)));
+      toast("Documento allegato alla spesa esistente", "success");
+    },
+    [setTrips, toast]
+  );
+
   const confirmItem = useCallback(
     async (itemId) => {
       const item = queueRef.current.find((it) => it.id === itemId);
@@ -311,16 +419,45 @@ export function useScanQueue({ pickFiles }) {
     const tripId = targetTripIdRef.current;
     if (!tripId) return;
     const all = queueRef.current.filter((it) => it.status === "done");
-    const toAdd = all.filter((it) => !it.data?.duplicateOf);
-    if (toAdd.length === 0) return toast("Nessuno scontrino valido da aggiungere", "error");
+    const candidates = all.filter((it) => !it.data?.duplicateOf);
+    // Documents matching an already-saved expense are attached to it rather
+    // than added as new expenses.
+    const toAttach = candidates.filter((it) => it.data?.attachToId);
+    const toAdd = candidates.filter((it) => !it.data?.attachToId);
+    if (toAdd.length === 0 && toAttach.length === 0)
+      return toast("Nessuno scontrino valido da aggiungere", "error");
+
     const newExpenses = await Promise.all(toAdd.map(buildExpenseFromQueueItem));
+    const attachments = await Promise.all(
+      toAttach.map(async (it) => ({
+        targetId: it.data.attachToId,
+        entry: {
+          thumb: it.thumb,
+          imageHash: it.imageHash,
+          ...(it.isPdf ? { pdf: true, fileName: it.fileName } : {}),
+          ...(await storeFullImage(it.full)),
+        },
+      }))
+    );
     setTrips((ts) =>
-      ts.map((t) => (t.id === tripId ? { ...t, expenses: [...t.expenses, ...newExpenses] } : t))
+      ts.map((t) => {
+        if (t.id !== tripId) return t;
+        const expenses = t.expenses.map((e) => {
+          const mine = attachments.filter((a) => a.targetId === e.id);
+          return mine.length > 0
+            ? { ...e, extraImages: [...(e.extraImages || []), ...mine.map((a) => a.entry)] }
+            : e;
+        });
+        return { ...t, expenses: [...expenses, ...newExpenses] };
+      })
     );
-    setQueue((q) =>
-      q.map((it) => (toAdd.find((a) => a.id === it.id) ? { ...it, status: "confirmed" } : it))
-    );
-    toast(`${toAdd.length} scontrini aggiunti`, "success");
+    const doneIds = new Set(candidates.map((it) => it.id));
+    setQueue((q) => q.map((it) => (doneIds.has(it.id) ? { ...it, status: "confirmed" } : it)));
+    const parts = [];
+    if (toAdd.length > 0) parts.push(`${toAdd.length} scontrini aggiunti`);
+    if (toAttach.length > 0)
+      parts.push(`${toAttach.length} allegat${toAttach.length === 1 ? "o" : "i"}`);
+    toast(parts.join(" · "), "success");
     setTimeout(() => nav.closeTopOverlay(), 600);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setTrips, toast]);
@@ -356,6 +493,8 @@ export function useScanQueue({ pickFiles }) {
       discardItem,
       retryItem,
       reanalyzeItem: retryItem,
+      splitItem,
+      attachItem,
       saveRawItem,
       confirmAll,
       discardAll,

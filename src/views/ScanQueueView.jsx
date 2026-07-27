@@ -83,6 +83,8 @@ export function ScanQueueView({
   onDiscardItem,
   onRetryItem,
   onSaveRawItem,
+  onSplitItem,
+  onAttachItem,
   onReanalyzeItem,
   onConfirmAll,
   onDiscardAll,
@@ -187,6 +189,8 @@ export function ScanQueueView({
               onDiscard={onDiscardItem}
               onRetry={onRetryItem}
               onSaveRaw={onSaveRawItem}
+              onSplit={onSplitItem}
+              onAttach={onAttachItem}
               onReanalyze={onReanalyzeItem ? () => onReanalyzeItem(item.id) : undefined}
               settings={settings}
               trip={trip}

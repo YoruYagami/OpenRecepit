@@ -16,6 +16,8 @@ export function EditableReceiptCard({
   onDiscard,
   onRetry,
   onSaveRaw,
+  onSplit,
+  onAttach,
   onReanalyze,
   onAddAttachment,
   onViewImage,
@@ -113,8 +115,18 @@ export function EditableReceiptCard({
                 )}
               </div>
               <p className="font-bold text-ink truncate mt-0.5">{data.esercente}</p>
-              {data.descrizione && (
-                <p className="text-xs text-ink/55 truncate mt-0.5">{data.descrizione}</p>
+              {item.mergedCount > 1 ? (
+                <p className="text-[11px] text-ok font-semibold truncate mt-0.5">
+                  {item.mergedCount} documenti uniti
+                </p>
+              ) : data.attachToId ? (
+                <p className="text-[11px] text-ink/60 truncate mt-0.5">
+                  Documento di: {data.attachToLabel}
+                </p>
+              ) : (
+                data.descrizione && (
+                  <p className="text-xs text-ink/55 truncate mt-0.5">{data.descrizione}</p>
+                )
               )}
             </div>
             <div className="text-right shrink-0 flex flex-col items-end justify-between">
@@ -178,6 +190,34 @@ export function EditableReceiptCard({
             <div className="text-xs mt-0.5 break-words">{item.error}</div>
           </div>
         )}
+        {item.mergedCount > 1 && (status === "done" || status === "confirmed") && (
+          <div className="rounded-xl bg-ok-soft border border-ok-line px-3 py-2 flex items-center gap-2">
+            <Icon name="check" className="w-4 h-4 text-ok shrink-0" />
+            <p className="text-xs text-ok flex-1 min-w-0">
+              <span className="font-bold">{item.mergedCount} documenti uniti</span> in questa
+              spesa (scontrino, POS, estratto…)
+            </p>
+            {onSplit && status === "done" && (
+              <button
+                onClick={() => onSplit(item.id)}
+                className="text-[11px] font-bold text-ok px-2 py-1 rounded-md hover:bg-ok-line/30 shrink-0"
+              >
+                Separa
+              </button>
+            )}
+          </div>
+        )}
+
+        {data.attachToId && status === "done" && (
+          <div className="rounded-xl bg-surface-2 border border-line px-3 py-2 flex items-center gap-2">
+            <Icon name="plus" className="w-4 h-4 text-ink/60 shrink-0" />
+            <p className="text-xs text-ink/70 flex-1 min-w-0">
+              Sembra un documento di:{" "}
+              <span className="font-bold text-ink">{data.attachToLabel}</span>
+            </p>
+          </div>
+        )}
+
         {(status === "done" || status === "confirmed") && (
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <CategoryBadge id={data.categoria} size="sm" />
@@ -466,12 +506,29 @@ export function EditableReceiptCard({
               >
                 Scarta
               </button>
-              <button
-                onClick={() => onConfirm(item.id)}
-                className="flex-1 h-10 rounded-xl bg-ink text-paper font-semibold text-sm active:scale-[0.98]"
-              >
-                {confirmLabel}
-              </button>
+              {data.attachToId && onAttach ? (
+                <>
+                  <button
+                    onClick={() => onAttach(item.id)}
+                    className="flex-1 h-10 rounded-xl bg-ink text-paper font-semibold text-sm active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Icon name="plus" className="w-4 h-4" /> Allega
+                  </button>
+                  <button
+                    onClick={() => onConfirm(item.id)}
+                    className="basis-full h-10 rounded-xl bg-surface border border-line-strong text-ink font-semibold text-sm active:scale-[0.98]"
+                  >
+                    Aggiungi come spesa separata
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => onConfirm(item.id)}
+                  className="flex-1 h-10 rounded-xl bg-ink text-paper font-semibold text-sm active:scale-[0.98]"
+                >
+                  {confirmLabel}
+                </button>
+              )}
             </>
           )}
           {status === "processing" && (

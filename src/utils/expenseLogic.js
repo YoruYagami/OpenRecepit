@@ -63,6 +63,25 @@ export function similarMerchant(a, b) {
   return false;
 }
 
+/**
+ * Same-transaction heuristic for auto-grouping scanned documents (receipt +
+ * POS slip + bank statement of the same dinner): same date, amounts equal or
+ * within 5%, and merchants similar — or one merchant unreadable, common on
+ * bank statements and POS slips.
+ */
+export function looksLikeSameTransaction(a, b) {
+  if (!a || !b) return false;
+  if (!a.data || !b.data || a.data !== b.data) return false;
+  const ai = a.importo || 0;
+  const bi = b.importo || 0;
+  if (!(ai > 0) || !(bi > 0)) return false;
+  const amountClose = Math.abs(ai - bi) < 0.5 || Math.abs(ai - bi) / Math.max(ai, bi) < 0.05;
+  if (!amountClose) return false;
+  const unknown = (s) => !String(s || "").trim() || /sconosciut/i.test(String(s || ""));
+  if (unknown(a.esercente) || unknown(b.esercente)) return true;
+  return similarMerchant(a.esercente, b.esercente);
+}
+
 /** Blank expense payload for manual entry and save-without-analysis. */
 export function emptyExpenseData() {
   return {
@@ -73,6 +92,66 @@ export function emptyExpenseData() {
     categoria: "altro",
     descrizione: "",
     valuta: "EUR",
+  };
+}
+
+/**
+ * Merge queue items that look like the same transaction into one: the richest
+ * item (most complete data, highest amount) becomes the expense, the others
+ * ride along as attachments. Returns the merged item.
+ */
+export function mergeQueueItems(items) {
+  const score = (it) => {
+    const d = it.data || {};
+    return (
+      (d.esercente && !/sconosciut/i.test(d.esercente) ? 2 : 0) +
+      (Array.isArray(d.iva) && d.iva.length > 0 ? 2 : 0) +
+      (d.descrizione ? 1 : 0) +
+      (d.ora ? 1 : 0)
+    );
+  };
+  const sorted = [...items].sort((a, b) => {
+    const diff = score(b) - score(a);
+    if (diff !== 0) return diff;
+    return (b.data?.importo || 0) - (a.data?.importo || 0);
+  });
+  const [base, ...rest] = sorted;
+
+  // Keep the best value for each field across the group.
+  const merged = { ...base.data };
+  for (const it of rest) {
+    const d = it.data || {};
+    if (!merged.esercente || /sconosciut/i.test(merged.esercente)) {
+      if (d.esercente && !/sconosciut/i.test(d.esercente)) merged.esercente = d.esercente;
+    }
+    if (!merged.descrizione && d.descrizione) merged.descrizione = d.descrizione;
+    if (!merged.ora && d.ora) merged.ora = d.ora;
+    if ((!merged.iva || merged.iva.length === 0) && Array.isArray(d.iva) && d.iva.length > 0) {
+      merged.iva = d.iva;
+    }
+    if ((d.importo || 0) > (merged.importo || 0)) merged.importo = d.importo;
+  }
+
+  // The other documents become attachments of the surviving item.
+  const extraImages = [
+    ...(base.extraImages || []),
+    ...rest.flatMap((it) => [
+      {
+        thumb: it.thumb,
+        full: it.full,
+        imageHash: it.imageHash,
+        ...(it.isPdf ? { pdf: true, fileName: it.fileName } : {}),
+      },
+      ...(it.extraImages || []),
+    ]),
+  ];
+
+  return {
+    ...base,
+    data: merged,
+    extraImages,
+    mergedFrom: rest.map((it) => it.id),
+    mergedCount: items.length,
   };
 }
 
