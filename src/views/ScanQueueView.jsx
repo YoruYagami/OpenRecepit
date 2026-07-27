@@ -1,6 +1,76 @@
 import React, { useState } from "react";
 import { EditableReceiptCard } from "../components/receipts/EditableReceiptCard.jsx";
 import { Icon } from "../components/ui/Icon.jsx";
+import { Spinner } from "../components/ui/Spinner.jsx";
+
+/**
+ * Slim row for items still working (or failed): with 10+ photos in a batch,
+ * full expanded cards for every pending item made the list unreadable.
+ */
+function QueueRow({ item, onRetry, onDiscard, onSaveRaw }) {
+  const isError = item.status === "error";
+  return (
+    <div
+      className={`bg-surface rounded-xl shadow-soft px-3 py-2.5 flex items-center gap-3 ${
+        isError ? "ring-1 ring-danger-line" : ""
+      }`}
+    >
+      <div className="w-10 h-10 rounded-lg bg-surface-2 overflow-hidden grid place-items-center shrink-0">
+        {item.thumb ? (
+          <img src={item.thumb} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <Icon name={item.isPdf ? "fileText" : "receipt"} className="w-4 h-4 text-ink/40" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-ink truncate">{item.fileName}</p>
+        {isError ? (
+          <p className="text-[11px] text-danger truncate">{item.error}</p>
+        ) : (
+          <p className="text-[11px] text-ink/50">
+            {item.status === "processing" ? "Analisi in corso…" : "In coda"}
+          </p>
+        )}
+      </div>
+      {isError ? (
+        <div className="flex gap-1 shrink-0">
+          <button
+            onClick={() => onRetry(item.id)}
+            aria-label="Riprova"
+            title="Riprova"
+            className="w-9 h-9 rounded-lg bg-surface-2 grid place-items-center text-ink/70 active:scale-95"
+          >
+            <Icon name="refresh" className="w-4 h-4" />
+          </button>
+          {onSaveRaw && (item.thumb || item.full) && (
+            <button
+              onClick={() => onSaveRaw(item.id)}
+              aria-label="Salva senza analisi"
+              title="Salva senza analisi"
+              className="w-9 h-9 rounded-lg bg-surface-2 grid place-items-center text-ink/70 active:scale-95"
+            >
+              <Icon name="save" className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={() => onDiscard(item.id)}
+            aria-label="Scarta"
+            title="Scarta"
+            className="w-9 h-9 rounded-lg bg-surface-2 grid place-items-center text-danger active:scale-95"
+          >
+            <Icon name="x" className="w-4 h-4" />
+          </button>
+        </div>
+      ) : (
+        <Spinner
+          className={`w-4 h-4 shrink-0 ${
+            item.status === "processing" ? "text-ink/60" : "text-ink/25"
+          }`}
+        />
+      )}
+    </div>
+  );
+}
 
 /*
  * Scan queue body — rendered inside <Overlay variant="fullscreen"> by the
@@ -92,11 +162,22 @@ export function ScanQueueView({
 
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
         {queue.map((item) => {
-          const isExpanded =
-            expandedIds.has(item.id) ||
+          if (
             item.status === "pending" ||
             item.status === "processing" ||
-            item.status === "error";
+            item.status === "error"
+          ) {
+            return (
+              <QueueRow
+                key={item.id}
+                item={item}
+                onRetry={onRetryItem}
+                onDiscard={onDiscardItem}
+                onSaveRaw={onSaveRawItem}
+              />
+            );
+          }
+          const isExpanded = expandedIds.has(item.id);
           return (
             <EditableReceiptCard
               key={item.id}

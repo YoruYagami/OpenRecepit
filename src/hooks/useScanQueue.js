@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useAppContext } from "../context/AppContext.jsx";
 import { useNav } from "../navigation/NavProvider.jsx";
 import { analyzeReceipt } from "../api/openRouter.js";
-import { fileSha256, fileToResizedDataURL } from "../utils/image.js";
+import { sha256Text, fileToResizedDataURL } from "../utils/image.js";
 import { readFile } from "../utils/file.js";
 import { buildExpenseFromQueueItem } from "../utils/expenseImages.js";
 import { emptyExpenseData, findContentDuplicate } from "../utils/expenseLogic.js";
@@ -160,21 +160,12 @@ export function useScanQueue({ pickFiles }) {
       const seenInBatch = new Set(
         append ? queueRef.current.map((it) => it.imageHash).filter(Boolean) : []
       );
-      const built = await Promise.all(
+      const prepared = await Promise.all(
         working.map(async (file) => {
           let thumb = null,
             full = null,
             error = null,
             imageHash = null;
-          try {
-            imageHash = await fileSha256(file);
-          } catch (e) {
-            console.debug("image hash failed (duplicate detection disabled for this file)", e);
-          }
-          if (imageHash && (existingHashes.has(imageHash) || seenInBatch.has(imageHash))) {
-            return { skipped: true, imageHash };
-          }
-          if (imageHash) seenInBatch.add(imageHash);
           const isPdf = isPdfFile(file);
           try {
             if (isPdf) {
@@ -187,6 +178,15 @@ export function useScanQueue({ pickFiles }) {
             }
           } catch (err) {
             error = err?.message || "Impossibile leggere il file";
+          }
+          // Hash the resized output, not the source bytes: pickers re-encode
+          // files on every pass, so only our own pipeline output is stable.
+          if (full) {
+            try {
+              imageHash = await sha256Text(full);
+            } catch (e) {
+              console.debug("image hash failed (duplicate detection disabled)", e);
+            }
           }
           return {
             id: uid(),
@@ -203,8 +203,17 @@ export function useScanQueue({ pickFiles }) {
         })
       );
 
-      const newItems = built.filter((b) => !b.skipped);
-      const skippedDuplicateFiles = built.length - newItems.length;
+      // Sequential dedupe pass: no concurrency race between check and add.
+      const newItems = [];
+      let skippedDuplicateFiles = 0;
+      for (const b of prepared) {
+        if (b.imageHash && (existingHashes.has(b.imageHash) || seenInBatch.has(b.imageHash))) {
+          skippedDuplicateFiles++;
+          continue;
+        }
+        if (b.imageHash) seenInBatch.add(b.imageHash);
+        newItems.push(b);
+      }
       if (skippedDuplicateFiles > 0) {
         toast(
           `${skippedDuplicateFiles} duplicat${skippedDuplicateFiles === 1 ? "o" : "i"} saltat${skippedDuplicateFiles === 1 ? "o" : "i"}`,

@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { useAppContext } from "../context/AppContext.jsx";
-import { fileSha256, fileToResizedDataURL } from "../utils/image.js";
+import { sha256Text, fileToResizedDataURL } from "../utils/image.js";
 import { readFile } from "../utils/file.js";
 import { storeFullImage } from "../utils/expenseImages.js";
 import { emptyExpenseData } from "../utils/expenseLogic.js";
@@ -104,15 +104,10 @@ export function useExpenseActions({ pickFiles }) {
       const built = [];
       for (const file of working) {
         try {
-          let imageHash = null;
-          try {
-            imageHash = await fileSha256(file);
-          } catch (e) {
-            console.debug("attachment hash failed", e);
-          }
           const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
           if (isPdf) {
             const dataUrl = await readFile(file, { as: "dataURL" });
+            const imageHash = await sha256Text(dataUrl).catch(() => null);
             built.push({
               thumb: null,
               imageHash,
@@ -125,6 +120,7 @@ export function useExpenseActions({ pickFiles }) {
               fileToResizedDataURL(file, 1280, 0.85),
               fileToResizedDataURL(file, 320, 0.6),
             ]);
+            const imageHash = await sha256Text(full).catch(() => null);
             built.push({ thumb, imageHash, ...(await storeFullImage(full)) });
           }
         } catch (e) {

@@ -50,3 +50,14 @@ export async function fileSha256(file) {
   const hash = await crypto.subtle.digest("SHA-256", buf);
   return b64urlEncode(hash);
 }
+
+/**
+ * Hash of a string (we use it on the RESIZED data URL, not the source bytes):
+ * pickers and the camera plugin re-encode files on every pass, so source bytes
+ * differ for the same photo — the output of our own resize pipeline doesn't.
+ */
+export async function sha256Text(text) {
+  const buf = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  return b64urlEncode(hash);
+}

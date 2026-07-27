@@ -5,7 +5,7 @@ import { useNav } from "../navigation/NavProvider.jsx";
 import { analyzeReceipt } from "../api/openRouter.js";
 import { findContentDuplicate } from "../utils/expenseLogic.js";
 import { storeFullImage } from "../utils/expenseImages.js";
-import { fileSha256, fileToResizedDataURL } from "../utils/image.js";
+import { sha256Text, fileToResizedDataURL } from "../utils/image.js";
 import { uid } from "../utils/formatters.js";
 
 const SharedFile = registerPlugin("SharedFile");
@@ -32,13 +32,8 @@ export function useSharedFile() {
 
   const buildEntry = async (shared) => {
     const blob = await (await fetch(shared.dataUrl)).blob();
-    let imageHash = null;
-    try {
-      imageHash = await fileSha256(blob);
-    } catch {
-      /* dedup disabled for this file */
-    }
     if (shared.isPdf) {
+      const imageHash = await sha256Text(shared.dataUrl).catch(() => null);
       return {
         thumb: null,
         imageHash,
@@ -51,6 +46,7 @@ export function useSharedFile() {
       fileToResizedDataURL(blob, 1280, 0.85),
       fileToResizedDataURL(blob, 320, 0.6),
     ]);
+    const imageHash = await sha256Text(full).catch(() => null);
     return { thumb, imageHash, ...(await storeFullImage(full)) };
   };
 
