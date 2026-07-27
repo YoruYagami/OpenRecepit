@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- allowBackup=false: Android Auto Backup would silently copy the WebView
-         storage (receipts, API key, PIN hash) to Google Drive and RESTORE it on
-         reinstall — resurrecting deleted data. The xml rules are defence-in-depth
-         for transports that ignore the flag. In-app JSON export is the intended
-         backup mechanism. -->
+    <!-- allowBackup=false: blocks Android cloud backup AND its install-time
+         restore, which silently uploaded the WebView storage (receipts, API
+         key, PIN hash) to Google Drive and resurrected deleted data on
+         reinstall. Android 12+ device-to-device transfer is deliberately left
+         enabled so a phone migration carries the data. The xml rules are a
+         deny-all guard that only takes effect if this flag is ever flipped
+         back. In-app JSON export is the supported backup mechanism. -->
     <application
         android:allowBackup="false"
         android:fullBackupContent="@xml/backup_rules"

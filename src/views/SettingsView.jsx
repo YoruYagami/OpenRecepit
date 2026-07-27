@@ -597,7 +597,8 @@ function BackupSection({ askConfirm }) {
         <h3 className="text-sm font-bold uppercase tracking-wide text-ink/60">Backup</h3>
         <p className="text-xs text-ink/50 mt-0.5">
           Esporta o ripristina trasferte e preferenze. La API key e i dati di sicurezza non vengono
-          inclusi.
+          inclusi. I dati vivono solo su questo dispositivo: prima di disinstallare l'app,
+          esporta un backup.
         </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

@@ -142,6 +142,7 @@ I dati di versioni precedenti (immagini inline, localStorage) vengono migrati au
 - **PIN**: PBKDF2-SHA256 a 150.000 iterazioni, salt random 16 byte; i vecchi hash SHA-256 vengono migrati al primo sblocco. Lockout: 30s dopo 5 errori, raddoppia a ogni gruppo.
 - **Il PIN è un blocco UI, non cifratura**: protegge dall'accesso occasionale, non da chi ha accesso ai file del profilo. "PIN dimenticato?" sblocca senza perdere dati.
 - **API key e immagini** sono salvate in chiaro nello storage del browser/app.
+- **Backup Android disattivato** (dalla v2.0.1): i dati non vengono piu copiati su Google Drive e la reinstallazione parte pulita; il trasferimento diretto telefono-telefono conserva i dati. Se hai usato l'APK v2.0.0 o precedenti, una copia dei dati (inclusa la API key) puo esistere nel backup Google del vecchio dispositivo: per prudenza rigenera la API key su openrouter.ai.
 - **Biometria**: BiometricPrompt nativo nell'APK; WebAuthn su web/PWA (richiede HTTPS o localhost).
 
 ## Privacy

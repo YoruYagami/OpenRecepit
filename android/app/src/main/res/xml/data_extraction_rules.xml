@@ -1,16 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+ (targetSdk 31+) backup/transfer rules. Mirrors backup_rules.xml:
-     keep the WebView local storage (API key, PIN hash, receipts) out of both
-     cloud backups and device-to-device transfer. -->
+<!-- Android 12+ backup/transfer rules.
+
+     Cloud backup: deny-all guard. allowBackup=false already disables cloud
+     backup entirely; these excludes only matter if that flag is ever flipped
+     back (e.g. a Capacitor template regeneration), and they are domain-wide
+     denies so no storage location — present or future — can slip through.
+     (The previous per-path rule used domain="file" for app_webview, which
+     resolves under getFilesDir() and never matched: WebView storage lives
+     under getDataDir(), i.e. domain="root".)
+
+     Device transfer: deliberately unrestricted. The Android 12+ phone-to-phone
+     setup wizard is a direct, user-initiated copy between the user's own
+     devices (no cloud involved), and a phone migration must carry the
+     receipts. Reinstall-resurrection is prevented by allowBackup=false. -->
 <data-extraction-rules>
     <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
         <exclude domain="database" />
         <exclude domain="sharedpref" />
-        <exclude domain="file" path="app_webview" />
+        <exclude domain="external" />
     </cloud-backup>
-    <device-transfer>
-        <exclude domain="database" />
-        <exclude domain="sharedpref" />
-        <exclude domain="file" path="app_webview" />
-    </device-transfer>
 </data-extraction-rules>

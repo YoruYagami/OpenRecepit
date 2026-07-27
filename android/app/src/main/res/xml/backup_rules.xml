@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android <= 11 (full-backup) rules. Exclude the WebView local storage that
-     holds the cleartext OpenRouter API key, PIN hash and receipt data so an
-     `adb backup` / cloud backup cannot exfiltrate them. allowBackup is also
-     disabled in the manifest; this is defence-in-depth. -->
+<!-- Android <= 11 full-backup rules. Never consulted while allowBackup=false
+     (the platform doesn't parse this file when backup is off); kept and
+     referenced by the manifest purely as a deny-all guard in case the flag is
+     ever re-enabled. Domain-wide excludes: immune to the path-typo bug class
+     that made the previous app_webview rule a no-op. -->
 <full-backup-content>
+    <exclude domain="root" />
+    <exclude domain="file" />
     <exclude domain="database" />
     <exclude domain="sharedpref" />
-    <exclude domain="file" path="app_webview" />
+    <exclude domain="external" />
 </full-backup-content>

@@ -1,5 +1,5 @@
 // Keep in sync with package.json "version" (shown in Settings).
-export const APP_VERSION = "2.0.0";
+export const APP_VERSION = "2.0.1";
 
 export const STORAGE_TRIPS = "receipt-tracker-trips";
 export const STORAGE_SETTINGS = "receipt-tracker-settings";
