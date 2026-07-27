@@ -40,6 +40,7 @@ export function TripDetailView({
   onScanGallery,
   onExportCSV,
   onExportSummary,
+  onExportPack,
   onViewImage,
   settings,
 }) {
@@ -273,6 +274,16 @@ export function TripDetailView({
                     onExportSummary();
                   }}
                 />
+                {onExportPack && (
+                  <MenuItem
+                    icon="share"
+                    label="Pacchetto rimborso (ZIP)"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onExportPack();
+                    }}
+                  />
+                )}
                 <MenuItem
                   icon="refresh"
                   label="Rianalizza tutto"

@@ -99,6 +99,18 @@ function AppInner() {
     []
   );
 
+  const exportPack = async (trip) => {
+    if (trip.expenses.length === 0) return toast("Nessuna spesa da esportare", "error");
+    toast("Preparo il pacchetto rimborso…", "info");
+    try {
+      const { exportReimbursePack } = await import("./utils/reimbursePack.js");
+      const r = await exportReimbursePack(trip);
+      if (!r?.canceled) toast("Pacchetto rimborso esportato", "success");
+    } catch (e) {
+      toast(e?.message || "Esportazione fallita", "error");
+    }
+  };
+
   const exportTrip = async (trip, kind) => {
     if (trip.expenses.length === 0) return toast("Nessuna spesa da esportare", "error");
     const safeName = (trip.name || "trasferta").replace(/[^a-z0-9-_]+/gi, "_");
@@ -178,6 +190,7 @@ function AppInner() {
           onScanGallery={() => scanQueue.startScan(openTrip.id, "gallery")}
           onExportCSV={() => exportTrip(openTrip, "csv")}
           onExportSummary={() => exportTrip(openTrip, "summary")}
+          onExportPack={() => exportPack(openTrip)}
           onViewImage={viewImage}
           settings={settings}
         />
